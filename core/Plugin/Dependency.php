@@ -8,6 +8,21 @@
  */
 namespace Piwik\Plugin;
 
+use Composer\DependencyResolver\DefaultPolicy;
+use Composer\DependencyResolver\Pool;
+use Composer\DependencyResolver\Request;
+use Composer\DependencyResolver\Solver;
+use Composer\DependencyResolver\SolverProblemsException;
+use Composer\Json\JsonFile;
+use Composer\Package\Package;
+use Composer\Repository\ArrayRepository;
+use Composer\Repository\FilesystemRepository;
+use Composer\Repository\WritableArrayRepository;
+use Composer\Semver\Constraint\Constraint;
+use Composer\Semver\Constraint\MultiConstraint;
+use Composer\Semver\VersionParser;
+use DI\DependencyException;
+use Piwik\Plugin;
 use Piwik\Plugin\Manager as PluginManager;
 use Piwik\Version;
 
@@ -21,6 +36,46 @@ class Dependency
     public function __construct()
     {
         $this->setPiwikVersion(Version::VERSION);
+    }
+
+    public function solve()
+    {
+        $policy = new DefaultPolicy($preferStable = false, $preferLowest = false);
+        $pool   = new Pool($minimumStability = 'dev');
+        $packages = array();
+
+        // here we define our available packages.
+        foreach (Plugin\Manager::getInstance()->getLoadedPlugins() as $name => $plugin) {
+            $version = $plugin->getVersion();
+            $package = new Package($name, $version, $prettyVersion = $version);
+            $package->setRequires($plugin->getDependencies());
+
+            $packages[] = $package;
+        }
+
+        // todo we also need to add plugins from marketplace into repository
+
+        $repository = new ArrayRepository($packages);
+        $solver = new Solver($policy, $pool, $repository);
+
+        $request = new Request();
+
+        // here we define what we want to do! eg install a fixed version, update a plugin with a certain constraint etc
+        $versionParser = new VersionParser();
+
+        $request->install('plugin1', $versionParser->parseConstraints('>=34'));
+        $request->update('plugin2', $versionParser->parseConstraints('2.15.0'));
+        $request->fix('CoreHome', $versionParser->parseConstraints(Version::VERSION));
+
+        try {
+            $operations = $solver->solve($request, false);
+        } catch (SolverProblemsException $e) {
+            $promlems = $e->getProblems(); // each individual problem
+            $message = $e->getMessage(); // human readable version but it may contain links to google user groups etc
+            throw new DependencyException(); // todo make it human readable
+        }
+
+        return $operations;
     }
 
     public function getMissingDependencies($requires)

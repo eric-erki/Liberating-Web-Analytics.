@@ -408,9 +408,20 @@ class Plugin
         return !empty($requirements);
     }
 
-    public function getMissingDependencies($piwikVersion = null)
+    public function getDependencies()
     {
         if (empty($this->pluginInformation['require'])) {
+            return array();
+        }
+
+        return $this->pluginInformation['require'];
+    }
+
+    public function getMissingDependencies($piwikVersion = null)
+    {
+        $dependencies = $this->getDependencies();
+
+        if (empty($dependencies)) {
             return array();
         }
 
@@ -420,7 +431,7 @@ class Plugin
             $dependency->setPiwikVersion($piwikVersion);
         }
 
-        return $dependency->getMissingDependencies($this->pluginInformation['require']);
+        return $dependency->getMissingDependencies($dependencies);
     }
 
     /**

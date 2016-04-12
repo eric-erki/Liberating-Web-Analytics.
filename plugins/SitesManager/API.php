@@ -562,16 +562,16 @@ class API extends \Piwik\Plugin\API
             $settingValues = $this->setSettingValue('urls', $urls, $settingValues);
         }
         if (isset($ecommerce)) {
-            $settingValues = $this->setSettingValue('ecommerce', $ecommerce, $settingValues);
+            $settingValues = $this->setSettingValue('ecommerce', $ecommerce, $settingValues, 'Ecommerce');
         }
         if (isset($siteSearch)) {
-            $settingValues = $this->setSettingValue('sitesearch', $siteSearch, $settingValues);
+            $settingValues = $this->setSettingValue('sitesearch', $siteSearch, $settingValues, 'Actions');
         }
         if (isset($searchKeywordParameters)) {
-            $settingValues = $this->setSettingValue('sitesearch_keyword_parameters', explode(',', $searchKeywordParameters), $settingValues);
+            $settingValues = $this->setSettingValue('sitesearch_keyword_parameters', explode(',', $searchKeywordParameters), $settingValues, 'Actions');
         }
         if (isset($searchCategoryParameters)) {
-            $settingValues = $this->setSettingValue('sitesearch_category_parameters', explode(',', $searchCategoryParameters), $settingValues);
+            $settingValues = $this->setSettingValue('sitesearch_category_parameters', explode(',', $searchCategoryParameters), $settingValues, 'Actions');
         }
         if (isset($keepURLFragments)) {
             $settingValues = $this->setSettingValue('keep_url_fragment', $keepURLFragments, $settingValues);
@@ -580,13 +580,13 @@ class API extends \Piwik\Plugin\API
             $settingValues = $this->setSettingValue('exclude_unknown_urls', $excludeUnknownUrls, $settingValues);
         }
         if (isset($excludedIps)) {
-            $settingValues = $this->setSettingValue('excluded_ips', explode(',', $excludedIps), $settingValues);
+            $settingValues = $this->setSettingValue('excluded_ips', explode(',', $excludedIps), $settingValues, 'CoreHome');
         }
         if (isset($excludedQueryParameters)) {
             $settingValues = $this->setSettingValue('excluded_parameters', explode(',', $excludedQueryParameters), $settingValues);
         }
         if (isset($excludedUserAgents)) {
-            $settingValues = $this->setSettingValue('excluded_user_agents', explode(',', $excludedUserAgents), $settingValues);
+            $settingValues = $this->setSettingValue('excluded_user_agents', explode(',', $excludedUserAgents), $settingValues, 'CoreHome');
         }
 
         $timezone = trim($timezone);
@@ -656,9 +656,8 @@ class API extends \Piwik\Plugin\API
         return (int) $idSite;
     }
 
-    private function setSettingValue($fieldName, $value, $settingValues)
+    private function setSettingValue($fieldName, $value, $settingValues, $pluginName = 'WebsiteMeasurable')
     {
-        $pluginName = 'WebsiteMeasurable';
         if (empty($settingValues[$pluginName])) {
             $settingValues[$pluginName] = array();
         }
@@ -1213,16 +1212,16 @@ class API extends \Piwik\Plugin\API
             $settingValues = $this->setSettingValue('urls', $urls, $settingValues);
         }
         if (isset($ecommerce)) {
-            $settingValues = $this->setSettingValue('ecommerce', $ecommerce, $settingValues);
+            $settingValues = $this->setSettingValue('ecommerce', $ecommerce, $settingValues, 'Ecommerce');
         }
         if (isset($siteSearch)) {
-            $settingValues = $this->setSettingValue('sitesearch', $siteSearch, $settingValues);
+            $settingValues = $this->setSettingValue('sitesearch', $siteSearch, $settingValues, 'Actions');
         }
         if (isset($searchKeywordParameters)) {
-            $settingValues = $this->setSettingValue('sitesearch_keyword_parameters', explode(',', $searchKeywordParameters), $settingValues);
+            $settingValues = $this->setSettingValue('sitesearch_keyword_parameters', explode(',', $searchKeywordParameters), $settingValues, 'Actions');
         }
         if (isset($searchCategoryParameters)) {
-            $settingValues = $this->setSettingValue('sitesearch_category_parameters', explode(',', $searchCategoryParameters), $settingValues);
+            $settingValues = $this->setSettingValue('sitesearch_category_parameters', explode(',', $searchCategoryParameters), $settingValues, 'Actions');
         }
         if (isset($keepURLFragments)) {
             $settingValues = $this->setSettingValue('keep_url_fragment', $keepURLFragments, $settingValues);
@@ -1231,13 +1230,13 @@ class API extends \Piwik\Plugin\API
             $settingValues = $this->setSettingValue('exclude_unknown_urls', $excludeUnknownUrls, $settingValues);
         }
         if (isset($excludedIps)) {
-            $settingValues = $this->setSettingValue('excluded_ips', explode(',', $excludedIps), $settingValues);
+            $settingValues = $this->setSettingValue('excluded_ips', explode(',', $excludedIps), $settingValues, 'CoreHome');
         }
         if (isset($excludedQueryParameters)) {
             $settingValues = $this->setSettingValue('excluded_parameters', explode(',', $excludedQueryParameters), $settingValues);
         }
         if (isset($excludedUserAgents)) {
-            $settingValues = $this->setSettingValue('excluded_user_agents', explode(',', $excludedUserAgents), $settingValues);
+            $settingValues = $this->setSettingValue('excluded_user_agents', explode(',', $excludedUserAgents), $settingValues, 'CoreHome');
         }
 
         if (isset($currency)) {

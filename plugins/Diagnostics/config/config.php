@@ -14,6 +14,7 @@ return array(
     'diagnostics.optional' => array(
         DI\get('Piwik\Plugins\Diagnostics\Diagnostic\FileIntegrityCheck'),
         DI\get('Piwik\Plugins\Diagnostics\Diagnostic\TrackerCheck'),
+        DI\get('Piwik\Plugins\Diagnostics\Diagnostic\DatabaseVersionCheck'),
         DI\get('Piwik\Plugins\Diagnostics\Diagnostic\MemoryLimitCheck'),
         DI\get('Piwik\Plugins\Diagnostics\Diagnostic\TimezoneCheck'),
         DI\get('Piwik\Plugins\Diagnostics\Diagnostic\HttpClientCheck'),

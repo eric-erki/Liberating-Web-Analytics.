@@ -78,10 +78,14 @@ class JoinGenerator
 
         foreach ($this->tables as $i => $table) {
             if (is_array($table)) {
+                $thisTablePrefixed = Common::prefixTable($table['table']);
+                if (strpos($table['table'], '(') === 0 && Common::stringEndsWith($table['table'], ')')) {
+                    $thisTablePrefixed = $table['table'];
+                }
 
                 // join condition provided
                 $alias = isset($table['tableAlias']) ? $table['tableAlias'] : $table['table'];
-                $this->joinString .= " LEFT JOIN " . Common::prefixTable($table['table']) . " AS " . $alias
+                $this->joinString .= " LEFT JOIN " . $thisTablePrefixed . " AS " . $alias
                                    . " ON " . $table['joinOn'];
                 continue;
             }

@@ -8,6 +8,8 @@
  */
 namespace Piwik\Tests\Unit\DataAccess;
 
+use Piwik\Common;
+use Piwik\Config;
 use Piwik\DataAccess\LogQueryBuilder\JoinGenerator;
 use Piwik\DataAccess\LogQueryBuilder\JoinTables;
 use Piwik\Tests\Framework\Mock\Plugin\LogTablesProvider;
@@ -146,6 +148,35 @@ class JoinGeneratorTest extends \PHPUnit_Framework_TestCase
         );
 
         $this->assertEquals($expected, $tables);
+    }
+
+    public function test_sortCustomJoin()
+    {
+        $bkpPrefix = Config::getInstance()->database['tables_prefix'];
+        Config::getInstance()->database['tables_prefix'] = 'piwik_';
+
+        $table = Common::prefixTable('log_visit');
+
+        $tables = array(
+            'log_visit',
+            array(
+                'table' => "(select min(innervisit.idvisit) from $table innervisit where log_visit.idvisit = innervisit.idvisit group by innervisit.idvisit)",
+                'tableAlias' => 'myTable',
+                'joinOn' => 'myTable.idvisit = log_visit.idvisit'
+            ),
+            'log_link_visit_action',
+        );
+
+        $generator = $this->generate($tables);
+        $string = $generator->getJoinString();
+
+        Config::getInstance()->database['tables_prefix'] = $bkpPrefix;
+
+        $expected  = 'piwik_log_visit AS log_visit ';
+        $expected .= 'LEFT JOIN (select min(innervisit.idvisit) from piwik_log_visit innervisit where log_visit.idvisit = innervisit.idvisit group by innervisit.idvisit) AS myTable ON myTable.idvisit = log_visit.idvisit ';
+        $expected .= 'LEFT JOIN piwik_log_link_visit_action AS log_link_visit_action ON log_link_visit_action.idvisit = log_visit.idvisit';
+
+        $this->assertEquals($expected, $string);
     }
 
     private function generate($tables)

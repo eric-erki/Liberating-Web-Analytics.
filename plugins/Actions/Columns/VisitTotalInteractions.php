@@ -17,7 +17,7 @@ use Piwik\Tracker\Visitor;
 class VisitTotalInteractions extends VisitDimension
 {
     protected $columnName = 'visit_total_interactions';
-    protected $columnType = 'SMALLINT UNSIGNED DEFAULT 0';
+    protected $columnType = 'MEDIUMINT UNSIGNED DEFAULT 0';
 
     protected function configureSegments()
     {

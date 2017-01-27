@@ -248,14 +248,13 @@ class GoalManager
                 $goal['custom_var_v' . $i] = $visitorInformation['custom_var_v' . $i];
             }
         }
-
+        
         // some goals are converted, so must be ecommerce Order or Cart Update
         $isRequestEcommerce = $request->getMetadata('Ecommerce', 'isRequestEcommerce');
         if ($isRequestEcommerce) {
             $this->recordEcommerceGoal($visitProperties, $request, $goal, $action);
-        } else {
-            $this->recordStandardGoals($visitProperties, $request, $goal, $action);
         }
+        $this->recordStandardGoals($visitProperties, $request, $goal, $action);
     }
 
     /**

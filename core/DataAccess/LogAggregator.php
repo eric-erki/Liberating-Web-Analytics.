@@ -477,7 +477,7 @@ class LogAggregator
     {
         $where = "$tableName.$datetimeField >= ?
 				AND $tableName.$datetimeField <= ?
-				AND $tableName.idsite IN (". Common::getSqlStringFieldsArray($this->sites) . ")";
+				AND $tableName.idsite IN (". $this->makeSitesInStatement() . ")";
 
         if (!empty($extraWhere)) {
             $extraWhere = sprintf($extraWhere, $tableName, $tableName);
@@ -485,6 +485,16 @@ class LogAggregator
         }
 
         return $where;
+    }
+
+    private function makeSitesInStatement()
+    {
+        $sites = $this->sites;
+        if (!is_array($sites)) {
+            $sites = array($sites);
+        }
+        $sites = array_map('intval', $sites);
+        return implode(',',$sites);
     }
 
     protected function getGroupByStatement($dimensions, $tableName)
@@ -504,7 +514,6 @@ class LogAggregator
     protected function getGeneralQueryBindParams()
     {
         $bind = array($this->dateStart->getDateStartUTC(), $this->dateEnd->getDateEndUTC());
-        $bind = array_merge($bind, $this->sites);
 
         return $bind;
     }
@@ -596,7 +605,7 @@ class LogAggregator
                 array(
                     'log_conversion_item.server_time >= ?',
                     'log_conversion_item.server_time <= ?',
-                    'log_conversion_item.idsite IN (' . Common::getSqlStringFieldsArray($this->sites) . ')',
+                    'log_conversion_item.idsite IN (' . $this->makeSitesInStatement() . ')',
                     'log_conversion_item.deleted = 0'
                 )
             ),

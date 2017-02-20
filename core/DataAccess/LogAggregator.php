@@ -475,9 +475,11 @@ class LogAggregator
 
     public function getWhereStatement($tableName, $datetimeField, $extraWhere = false)
     {
+        $sites = $this->sites;
+        $sites = array_map('intval', $sites);
         $where = "$tableName.$datetimeField >= ?
 				AND $tableName.$datetimeField <= ?
-				AND $tableName.idsite IN (". Common::getSqlStringFieldsArray($this->sites) . ")";
+				AND $tableName.idsite IN (". implode($sites) . ")";
 
         if (!empty($extraWhere)) {
             $extraWhere = sprintf($extraWhere, $tableName, $tableName);
@@ -504,7 +506,6 @@ class LogAggregator
     protected function getGeneralQueryBindParams()
     {
         $bind = array($this->dateStart->getDateStartUTC(), $this->dateEnd->getDateEndUTC());
-        $bind = array_merge($bind, $this->sites);
 
         return $bind;
     }

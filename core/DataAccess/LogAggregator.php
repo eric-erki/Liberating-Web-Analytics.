@@ -479,7 +479,7 @@ class LogAggregator
         $sites = array_map('intval', $sites);
         $where = "$tableName.$datetimeField >= ?
 				AND $tableName.$datetimeField <= ?
-				AND $tableName.idsite IN (". implode($sites) . ")";
+				AND $tableName.idsite IN (". implode(',', $sites) . ")";
 
         if (!empty($extraWhere)) {
             $extraWhere = sprintf($extraWhere, $tableName, $tableName);

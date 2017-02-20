@@ -476,6 +476,9 @@ class LogAggregator
     public function getWhereStatement($tableName, $datetimeField, $extraWhere = false)
     {
         $sites = $this->sites;
+        if (!is_array($sites)) {
+            $sites = array($sites);
+        }
         $sites = array_map('intval', $sites);
         $where = "$tableName.$datetimeField >= ?
 				AND $tableName.$datetimeField <= ?

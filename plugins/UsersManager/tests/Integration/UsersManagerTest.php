@@ -119,6 +119,26 @@ class UsersManagerTest extends IntegrationTestCase
     /**
      * Dataprovider
      */
+    public function getUncommonButValidUserData()
+    {
+        return array(
+            array("gegagggea", "pass'word", "johns'email@example.com", "ali'as"),
+            array("test", "password \"with\" quotes", "\"very.unusual.@.unusual.com\"@example.com"),
+            array("special_characters", "!#$%&'*+-/=?^_`{|}~@", "!#$%&'*+-/=?^_`{|}~@example.com", "!#$%&'*+-/=?^_`{|}~@")
+        );
+    }
+
+    /**
+     * @dataProvider getUncommonUserData
+     */
+    public function testUserWithUncommonButValidUserData($userLogin, $password, $email, $alias=false)
+    {
+        $this->api->addUser($userLogin, $password, $email, $alias);
+    }
+
+    /**
+     * Dataprovider
+     */
     public function getAddUserInvalidLoginData()
     {
         return array(

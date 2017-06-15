@@ -129,7 +129,7 @@ class UsersManagerTest extends IntegrationTestCase
     }
 
     /**
-     * @dataProvider getUncommonUserData
+     * @dataProvider getUncommonButValidUserData
      */
     public function testUserWithUncommonButValidUserData($userLogin, $password, $email, $alias=false)
     {

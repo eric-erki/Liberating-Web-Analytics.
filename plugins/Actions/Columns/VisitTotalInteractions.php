@@ -60,7 +60,7 @@ class VisitTotalInteractions extends VisitDimension
         $request->setMetadata('Actions', $this->columnName, $visitor->getVisitorColumn($this->columnName));
 
         if (self::shouldCountInteraction($action)) {
-            return $this->columnName . ' + 1';
+            return 'MIN(32765, ' + $this->columnName . ' + 1)';
         }
 
         return false;

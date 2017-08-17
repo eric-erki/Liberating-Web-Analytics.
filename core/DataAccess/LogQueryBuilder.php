@@ -111,7 +111,11 @@ class LogQueryBuilder
         $innerLimitAndOffset = $limitAndOffset;
 
         if (!isset($innerGroupBy) && in_array('log_visit', $matchesFrom[1])) {
-            $innerGroupBy = "log_visit.idvisit";
+            if (!empty($groupBy) && $groupBy !== 'log_visit.idvisit') {
+                $innerGroupBy = $groupBy . ", log_visit.idvisit";
+            } else {
+                $innerGroupBy = "log_visit.idvisit";
+            }
         } elseif (!isset($innerGroupBy)) {
             throw new Exception('Cannot use subselect for join as no group by rule is specified');
         }

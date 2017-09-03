@@ -299,10 +299,16 @@ class Pages
                     $widget->setName($report['name']);
                 }
                 $widget->setParameters($params);
-                $widget->setCategoryId($categoryText);
+                if ($idGoal === Piwik::LABEL_ID_GOAL_IS_ECOMMERCE_ORDER) {
+                    $widget->setCategoryId('Goals_Ecommerce');
+                } else {
+                    $widget->setCategoryId($categoryText);
+                }
                 $widget->setSubcategoryId($categoryText);
                 $widget->setOrder($order);
-                $widget->setIsNotWidgetizable();
+                if ($idGoal !== Piwik::LABEL_ID_GOAL_IS_ECOMMERCE_ORDER) {
+                    $widget->setIsNotWidgetizable();
+                }
 
                 if (!empty($report['viewDataTable'])) {
                     $widget->forceViewDataTable($report['viewDataTable']);

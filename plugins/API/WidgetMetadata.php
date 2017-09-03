@@ -37,6 +37,8 @@ class WidgetMetadata
             /** @var WidgetConfig[] $widgets */
             $widgets = array($widgetConfig);
             if ($widgetConfig instanceof WidgetContainerConfig) {
+                $this->createMissingCategoriesAndSubcategories($categoryList, $widgetConfig->getWidgetConfigs());
+
                 // so far we go only one level down, in theory these widgetConfigs could have again containers containing configs
                 $widgets = array_merge($widgets, $widgetConfig->getWidgetConfigs());
             }

@@ -366,8 +366,13 @@ abstract class Base extends VisitDimension
 
         $this->detectCampaignKeywordFromReferrerUrl();
 
-        $isCurrentVisitACampaignWithSameName = $visitor->getVisitorColumn('referer_name') == $this->nameReferrerAnalyzed;
-        $isCurrentVisitACampaignWithSameName = $isCurrentVisitACampaignWithSameName && $visitor->getVisitorColumn('referer_type') == Common::REFERRER_TYPE_CAMPAIGN;
+        $existingVisitReferrerName = $visitor->getVisitorColumn('referer_name');
+        $currentRequestReferrerName = $this->nameReferrerAnalyzed;
+        $isCurrentVisitACampaignWithSameName = false;
+
+        if($visitor->getVisitorColumn('referer_type') == Common::REFERRER_TYPE_CAMPAIGN) {
+            $isCurrentVisitACampaignWithSameName = ($existingVisitReferrerName == $currentRequestReferrerName);
+        }
 
         // if we detected a campaign but there is still no keyword set, we set the keyword to the Referrer host
         if (empty($this->keywordReferrerAnalyzed)) {

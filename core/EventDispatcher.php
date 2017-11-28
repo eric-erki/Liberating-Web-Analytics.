@@ -73,6 +73,11 @@ class EventDispatcher
         }
     }
 
+    public function clearPluginCache($pluginName)
+    {
+        unset($this->pluginHooks[$pluginName]);
+    }
+
     /**
      * Triggers an event, executing all callbacks associated with it.
      *

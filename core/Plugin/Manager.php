@@ -1003,6 +1003,7 @@ class Manager
         if (!($plugin instanceof Plugin)) {
             $oPlugin = $this->loadPlugin($plugin);
             if ($oPlugin === null) {
+                EventDispatcher::getInstance()->clearPluginCache($plugin);
                 unset($this->loadedPlugins[$plugin]);
                 return;
             }
@@ -1010,6 +1011,7 @@ class Manager
             $plugin = $oPlugin;
         }
 
+        EventDispatcher::getInstance()->clearPluginCache($plugin->getPluginName());
         unset($this->loadedPlugins[$plugin->getPluginName()]);
     }
 

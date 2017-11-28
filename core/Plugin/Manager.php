@@ -1247,7 +1247,7 @@ class Manager
     /**
      * @param $pluginName
      */
-    private function unloadPluginFromMemory($pluginName)
+    public function unloadPluginFromMemory($pluginName)
     {
         $this->unloadPlugin($pluginName);
 

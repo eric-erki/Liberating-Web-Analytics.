@@ -1,5 +1,9 @@
 $(function () {
 
+  $('.icon-arrowdown').click( function(event) {
+    Mousetrap.trigger('z');
+    $(this).toggleClass('icon-arrowup').toggleClass('icon-arrowdown');
+  });
 
     angular.element(document).injector().invoke(handleZenMode);
 

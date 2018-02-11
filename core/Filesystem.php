@@ -10,6 +10,7 @@ namespace Piwik;
 
 use Exception;
 use Piwik\Container\StaticContainer;
+use Piwik\Exception\MissingFilePermissionException;
 use Piwik\Plugins\Installation\ServerFilesGenerator;
 use Piwik\Tracker\Cache as TrackerCache;
 use Piwik\Cache as PiwikCache;
@@ -20,7 +21,7 @@ use Piwik\Cache as PiwikCache;
  */
 class Filesystem
 {
-    /**
+    /*
      * Called on Core install, update, plugin enable/disable
      * Will clear all cache that could be affected by the change in configuration being made
      */
@@ -502,7 +503,9 @@ class Filesystem
             if (!@copy($source, $dest)) {
                 $message = "Error while creating/copying file to <code>$dest</code>. <br />"
                     . Filechecks::getErrorMessageMissingPermissions(self::getPathToPiwikRoot());
-                throw new Exception($message);
+                $exception = new MissingFilePermissionException($message);
+                $exception->setIsHtmlMessage();
+                throw $exception;
             }
         }
 

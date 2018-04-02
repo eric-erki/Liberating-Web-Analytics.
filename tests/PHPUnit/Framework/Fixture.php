@@ -91,8 +91,8 @@ class Fixture extends \PHPUnit_Framework_Assert
      */
     public $createConfig = true;
 
-    public $dropDatabaseInSetUp = true;
-    public $dropDatabaseInTearDown = true;
+    public $dropDatabaseInSetUp = false; // TODO: need a --drop option to run:tests
+    public $dropDatabaseInTearDown = false;
 
     /**
      * @deprecated
@@ -239,6 +239,7 @@ class Fixture extends \PHPUnit_Framework_Assert
             Db::get()->query("SET wait_timeout=28800;");
 
             DbHelper::createTables();
+            DbHelper::truncateAllTables();
 
             self::getPluginManager()->unloadPlugins();
 
@@ -259,6 +260,7 @@ class Fixture extends \PHPUnit_Framework_Assert
 
         self::resetPluginsInstalledConfig();
 
+        // TODO: slow
         $testEnvironment = $this->getTestEnvironment();
         static::loadAllPlugins($testEnvironment, $this->testCaseClass, $this->extraPluginsToLoad);
         self::updateDatabase();

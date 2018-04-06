@@ -11,6 +11,7 @@ namespace Piwik\Plugins\API;
 use Piwik\API\DocumentationGenerator;
 use Piwik\API\Proxy;
 use Piwik\API\Request;
+use Piwik\Columns\Dimension;
 use Piwik\Common;
 use Piwik\Config;
 use Piwik\Piwik;
@@ -140,6 +141,35 @@ class Controller extends \Piwik\Plugin\Controller
 		$tableMetrics
 		</table>
 		";
+    }
+
+    public function listAllDimensions()
+    {
+        $view = new View("@API/listAllDimensions"); // TODO
+        $this->setGeneralVariablesView($view);
+
+        $view->dimensions = Dimension::getAllDimensions();
+        return $view->render();
+
+        /*
+        Visit Dimensions:
+
+        Category:
+
+          MyDimension
+          [ segment: , linktosegment ]
+
+          description...
+
+        Action Dimensions:
+
+        Conversion Dimensions:
+        */
+    }
+
+    public function listAllMetrics()
+    {
+        // TODO
     }
 
     public function glossary()

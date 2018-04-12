@@ -72,7 +72,7 @@ class PluginsArchiver
     {
         $this->logAggregator->setQueryOriginHint('Core');
 
-        if ($this->isSingleSiteDayArchive) {
+        if ($this->params->isDayArchive()) {
             $metrics = $this->aggregateDayVisitsMetrics();
         } else {
             $metrics = $this->aggregateMultipleVisitsMetrics();
@@ -126,7 +126,7 @@ class PluginsArchiver
 
                 try {
                     $timer = new Timer();
-                    if ($this->isSingleSiteDayArchive) {
+                    if ($this->params->isDayArchive()) {
                         Log::debug("PluginsArchiver::%s: Archiving day reports for plugin '%s'.", __FUNCTION__, $pluginName);
 
                         $archiver->aggregateDayReport();

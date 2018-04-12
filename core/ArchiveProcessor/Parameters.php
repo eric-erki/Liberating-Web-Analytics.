@@ -173,6 +173,14 @@ class Parameters
         return $this->getPeriod()->getDateTimeEnd()->setTimezone($this->getSite()->getTimezone());
     }
 
+    public function isDayArchive()
+    {
+        $period = $this->getPeriod();
+        $secondsInPeriod = $period->getDateEnd()->getTimestampUTC() - $period->getDateStart()->getTimestampUTC();
+        $oneDay = $secondsInPeriod <= Date::NUM_SECONDS_IN_DAY;
+        return $oneDay;
+    }
+
     /**
      * @return bool
      */

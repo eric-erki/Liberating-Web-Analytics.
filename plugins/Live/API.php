@@ -315,7 +315,7 @@ class API extends \Piwik\Plugin\API
 
         $model = new Model();
         $data = $model->queryLogVisits($idSite, false, false, false, 0, 1, $visitorId, false, 'ASC');
-        $dataTable = $this->makeVisitorTableFromArray($data);
+        $dataTable = $this->makeVisitorTableFromArray($data, $rowCount = 1);
         $this->addFilterToCleanVisitors($dataTable, $idSite, false, true);
 
         return $dataTable;

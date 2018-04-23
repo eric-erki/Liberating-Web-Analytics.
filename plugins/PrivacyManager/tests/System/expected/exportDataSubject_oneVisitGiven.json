@@ -36,7 +36,7 @@
             "custom_var_v3": null,
             "custom_var_v4": null,
             "custom_var_v5": null,
-            "idsite": "1",
+            "idsite": "Site 1",
             "idvisit": "1",
             "idvisitor": "5484eb1bcd82eefe",
             "last_idlink_va": "11",
@@ -104,7 +104,7 @@
             "idaction_url_ref": "0",
             "idlink_va": "1",
             "idpageview": "123456",
-            "idsite": "1",
+            "idsite": "Site 1",
             "idvisit": "1",
             "idvisitor": "5484eb1bcd82eefe",
             "interaction_position": "1",
@@ -142,7 +142,7 @@
             "idaction_url_ref": "2",
             "idlink_va": "2",
             "idpageview": "123456",
-            "idsite": "1",
+            "idsite": "Site 1",
             "idvisit": "1",
             "idvisitor": "5484eb1bcd82eefe",
             "interaction_position": "2",
@@ -180,7 +180,7 @@
             "idaction_url_ref": "4",
             "idlink_va": "3",
             "idpageview": "123456",
-            "idsite": "1",
+            "idsite": "Site 1",
             "idvisit": "1",
             "idvisitor": "5484eb1bcd82eefe",
             "interaction_position": "3",
@@ -218,7 +218,7 @@
             "idaction_url_ref": "6",
             "idlink_va": "4",
             "idpageview": "123456",
-            "idsite": "1",
+            "idsite": "Site 1",
             "idvisit": "1",
             "idvisitor": "5484eb1bcd82eefe",
             "interaction_position": "4",
@@ -256,7 +256,7 @@
             "idaction_url_ref": null,
             "idlink_va": "5",
             "idpageview": "123456",
-            "idsite": "1",
+            "idsite": "Site 1",
             "idvisit": "1",
             "idvisitor": "5484eb1bcd82eefe",
             "interaction_position": "4",
@@ -294,7 +294,7 @@
             "idaction_url_ref": null,
             "idlink_va": "6",
             "idpageview": "123456",
-            "idsite": "1",
+            "idsite": "Site 1",
             "idvisit": "1",
             "idvisitor": "5484eb1bcd82eefe",
             "interaction_position": "4",
@@ -332,7 +332,7 @@
             "idaction_url_ref": null,
             "idlink_va": "7",
             "idpageview": "123456",
-            "idsite": "1",
+            "idsite": "Site 1",
             "idvisit": "1",
             "idvisitor": "5484eb1bcd82eefe",
             "interaction_position": "4",
@@ -370,7 +370,7 @@
             "idaction_url_ref": null,
             "idlink_va": "8",
             "idpageview": "123456",
-            "idsite": "1",
+            "idsite": "Site 1",
             "idvisit": "1",
             "idvisitor": "5484eb1bcd82eefe",
             "interaction_position": "4",
@@ -408,7 +408,7 @@
             "idaction_url_ref": null,
             "idlink_va": "9",
             "idpageview": "123456",
-            "idsite": "1",
+            "idsite": "Site 1",
             "idvisit": "1",
             "idvisitor": "5484eb1bcd82eefe",
             "interaction_position": "4",
@@ -446,7 +446,7 @@
             "idaction_url_ref": null,
             "idlink_va": "10",
             "idpageview": "123456",
-            "idsite": "1",
+            "idsite": "Site 1",
             "idvisit": "1",
             "idvisitor": "5484eb1bcd82eefe",
             "interaction_position": "4",
@@ -484,7 +484,7 @@
             "idaction_url_ref": null,
             "idlink_va": "11",
             "idpageview": "123456",
-            "idsite": "1",
+            "idsite": "Site 1",
             "idvisit": "1",
             "idvisitor": "5484eb1bcd82eefe",
             "interaction_position": "4",
@@ -497,35 +497,35 @@
         {
             "idlogfoobar": "35",
             "idlogfoobarbaz": "51",
-            "idsite": "1"
+            "idsite": "Site 1"
         },
         {
             "idlogfoobar": "36",
             "idlogfoobarbaz": "52",
-            "idsite": "1"
+            "idsite": "Site 1"
         }
     ],
     "log_foo_bar": [
         {
             "idlogfoo": "10",
             "idlogfoobar": "35",
-            "idsite": "1"
+            "idsite": "Site 1"
         },
         {
             "idlogfoo": "10",
             "idlogfoobar": "36",
-            "idsite": "1"
+            "idsite": "Site 1"
         }
     ],
     "log_foo": [
         {
             "idlogfoo": "10",
-            "idsite": "1",
+            "idsite": "Site 1",
             "idvisit": "1"
         },
         {
             "idlogfoo": "21",
-            "idsite": "1",
+            "idsite": "Site 1",
             "idvisit": "1"
         }
     ],
@@ -555,7 +555,7 @@
             "idgoal": "1",
             "idlink_va": null,
             "idorder": "0",
-            "idsite": "1",
+            "idsite": "Site 1",
             "idvisit": "1",
             "idvisitor": "5484eb1bcd82eefe",
             "items": "0",

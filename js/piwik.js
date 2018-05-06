@@ -7232,6 +7232,7 @@ if (typeof window.Piwik !== 'object') {
              */
             this.setConsentGiven = function () {
                 configHasConsent = true;
+                deleteCookie('consent_removed');
                 var i, requestType;
                 for (i = 0; i < consentRequestsQueue.length; i++) {
                     requestType = typeof consentRequestsQueue[i];

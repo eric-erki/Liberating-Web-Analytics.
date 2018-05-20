@@ -427,7 +427,7 @@ class Manager
     }
 
     /**
-     * @param string $pluginName
+     * @param string|string[] $pluginName
      */
     private function clearCache($pluginName)
     {
@@ -444,15 +444,20 @@ class Manager
      * Install loaded plugins
      *
      * @throws
-     * @return array Error messages of plugin install fails
      */
     public function installLoadedPlugins()
     {
         Log::debug("Loaded plugins: " . implode(", ", array_keys($this->getLoadedPlugins())));
-        
+
+        $pluginNamesInstalled = [];
         foreach ($this->getLoadedPlugins() as $plugin) {
-            $this->installPluginIfNecessary($plugin);
+            $pluginInstallExecuted = $this->installPluginIfNecessary($plugin, $clearCache = false);
+            if ($pluginInstallExecuted) {
+                $pluginNamesInstalled[] = $plugin->getPluginName();
+            }
         }
+
+        $this->clearCache($pluginNamesInstalled);
     }
 
     /**
@@ -1095,7 +1100,7 @@ class Manager
      *
      * @param Plugin $plugin
      */
-    private function installPluginIfNecessary(Plugin $plugin)
+    private function installPluginIfNecessary(Plugin $plugin, $clearCache = true)
     {
         $pluginName = $plugin->getPluginName();
         $saveConfig = false;
@@ -1123,8 +1128,12 @@ class Manager
 
         if ($saveConfig) {
             PiwikConfig::getInstance()->forceSave();
-            $this->clearCache($pluginName);
+            if ($clearCache) {
+                $this->clearCache($pluginName);
+            }
         }
+
+        return $saveConfig;
     }
 
     public function isTrackerPlugin(Plugin $plugin)

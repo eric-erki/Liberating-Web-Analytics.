@@ -48,6 +48,7 @@ class Collection
         'CustomAlerts',
         'Insights',
         'LogViewer',
+        'CustomVariables.getUsagesOfSlots',
     );
 
     /**

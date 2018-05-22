@@ -155,14 +155,18 @@ class Model
         return $index;
     }
 
-    public function addCustomVariable()
+    public function addCustomVariable($n)
     {
         $index  = $this->getHighestCustomVarIndex() + 1;
         $maxLen = CustomVariables::getMaxLengthCustomVariables();
 
-        Db::exec(sprintf('ALTER TABLE %s ', $this->table)
-               . sprintf('ADD COLUMN custom_var_k%d VARCHAR(%d) DEFAULT NULL,', $index, $maxLen)
-               . sprintf('ADD COLUMN custom_var_v%d VARCHAR(%d) DEFAULT NULL;', $index, $maxLen));
+        $parts = [];
+        for ($i = 0; $i != $n; ++$i) {
+            $parts[] = sprintf('ADD COLUMN custom_var_k%d VARCHAR(%d) DEFAULT NULL', $index + $i, $maxLen);
+            $parts[] = sprintf('ADD COLUMN custom_var_v%d VARCHAR(%d) DEFAULT NULL', $index + $i, $maxLen);
+        }
+
+        Db::exec(sprintf('ALTER TABLE %s ', $this->table) . implode(', ', $parts));
 
         return $index;
     }
@@ -190,9 +194,7 @@ class Model
                 $maxCustomVars   = self::DEFAULT_CUSTOM_VAR_COUNT;
                 $customVarsToAdd = $maxCustomVars - $model->getCurrentNumCustomVars();
 
-                for ($index = 0; $index < $customVarsToAdd; $index++) {
-                    $model->addCustomVariable();
-                }
+                $model->addCustomVariable($customVarsToAdd);
             } catch (\Exception $e) {
                 Log::error('Failed to add custom variable: ' . $e->getMessage());
             }

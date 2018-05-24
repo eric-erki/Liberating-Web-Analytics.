@@ -324,6 +324,8 @@ class Visitor implements VisitorInterface
         if ($ta == $tb) {
             if ($a['idlink_va'] > $b['idlink_va']) {
                return 1;
+            } else if ($a['idlink_va'] == $b['idlink_va']) {
+                return 0;
             }
 
             return -1;

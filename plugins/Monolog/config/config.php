@@ -5,6 +5,9 @@ use Monolog\Logger;
 use Piwik\Log;
 use Piwik\Plugins\Monolog\Handler\FileHandler;
 
+$client = new Raven_Client('https://77a90f80000142a68665c6de118ec7bd:492552245d644a30a4b606b07ec884f6@sentry.lw1.at/11');
+$sentryHandler = new Monolog\Handler\RavenHandler($client);
+$sentryHandler->setFormatter(new Monolog\Formatter\LineFormatter("%message% %context% %extra%\n"));
 return array(
 
     'Monolog\Logger' => DI\object('Monolog\Logger')
@@ -16,6 +19,7 @@ return array(
         'file'     => 'Piwik\Plugins\Monolog\Handler\FileHandler',
         'screen'   => 'Piwik\Plugins\Monolog\Handler\WebNotificationHandler',
         'database' => 'Piwik\Plugins\Monolog\Handler\DatabaseHandler',
+        'sentry' => 'Monolog\Handler\FilterHandler',
     ),
     'log.handlers' => DI\factory(function (ContainerInterface $c) {
         if ($c->has('ini.log.log_writers')) {
@@ -49,6 +53,16 @@ return array(
         ->constructor(DI\get('log.file.filename'), DI\get('log.level'))
         ->method('setFormatter', DI\get('log.lineMessageFormatter.file')),
 
+
+//    'Monolog\Handler\RavenHandler' => DI\object()
+//        ->constructor($client)
+//        ->method('setFormatter',$sentryFormatter),
+//    
+
+    'Monolog\Handler\FilterHandler' => DI\object()->constructor($sentryHandler,
+        \Monolog\Logger::WARNING,
+        \Monolog\Logger::EMERGENCY),
+    
     'log.lineMessageFormatter.file' => DI\object('Piwik\Plugins\Monolog\Formatter\LineMessageFormatter')
         ->constructorParameter('allowInlineLineBreaks', false),
 

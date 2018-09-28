@@ -775,7 +775,8 @@ class Manager
 
         $incompatible = array();
         foreach ($plugins as $plugin) {
-            if ($plugin->hasMissingDependencies($piwikVersion)) {
+            if ($plugin->hasMissingDependencies($piwikVersion)
+                && !$this->isPluginWithMissingLicense($plugin)) {
                 $incompatible[] = $plugin;
             }
         }
@@ -905,31 +906,9 @@ class Manager
             return $pluginsToPostPendingEventsTo;
         }
 
-        if ($newPlugin->isPremiumFeature()
-            && SettingsPiwik::isInternetEnabled()
-            && !Development::isEnabled()
-            && $this->isPluginActivated('Marketplace')
-            && $this->isPluginActivated($pluginName)) {
-
-            $cacheKey = 'MarketplacePluginMissingLicense' . $pluginName;
-            $cache = self::getLicenseCache();
-
-            if ($cache->contains($cacheKey)) {
-                $pluginLicenseInfo = $cache->fetch($cacheKey);
-            } else {
-                try {
-                    $plugins = StaticContainer::get('Piwik\Plugins\Marketplace\Plugins');
-                    $licenseInfo = $plugins->getLicenseValidInfo($pluginName);
-                } catch (\Exception $e) {
-                    $licenseInfo = array();
-                }
-
-                $pluginLicenseInfo = array('missing' => !empty($licenseInfo['isMissingLicense']));
-                $sixHours = 3600 * 6;
-                $cache->save($cacheKey, $pluginLicenseInfo, $sixHours);
-            }
-
-            if (!empty($pluginLicenseInfo['missing']) && (!defined('PIWIK_TEST_MODE') || !PIWIK_TEST_MODE)) {
+        if ($this->isPluginWithMissingLicense($newPlugin)) {
+            $isNotTestMode = !defined('PIWIK_TEST_MODE') || !PIWIK_TEST_MODE;
+            if ($this->isPluginActivated($pluginName) && $isNotTestMode) {
                 $this->unloadPluginFromMemory($pluginName);
                 return $pluginsToPostPendingEventsTo;
             }
@@ -938,6 +917,38 @@ class Manager
         $pluginsToPostPendingEventsTo[] = $newPlugin;
 
         return $pluginsToPostPendingEventsTo;
+    }
+
+    public function isPluginWithMissingLicense(Plugin $plugin)
+    {
+        if (!$plugin->isPremiumFeature()
+            || !SettingsPiwik::isInternetEnabled()
+            || !$this->isPluginActivated('Marketplace')
+            || Development::isEnabled()) {
+            // we disable in development mode for performance reasons...
+            return;
+        }
+
+        $pluginName = $plugin->getPluginName();
+        $cacheKey = 'MarketplacePluginMissingLicense' . $pluginName;
+        $cache = self::getLicenseCache();
+
+        if ($cache->contains($cacheKey)) {
+            $pluginLicenseInfo = $cache->fetch($cacheKey);
+        } else {
+            try {
+                $plugins = StaticContainer::get('Piwik\Plugins\Marketplace\Plugins');
+                $licenseInfo = $plugins->getLicenseValidInfo($pluginName);
+            } catch (\Exception $e) {
+                $licenseInfo = array();
+            }
+
+            $pluginLicenseInfo = array('missing' => !empty($licenseInfo['isMissingLicense']));
+            $sixHours = 3600 * 6;
+            $cache->save($cacheKey, $pluginLicenseInfo, $sixHours);
+        }
+
+        return !empty($pluginLicenseInfo['missing']);
     }
 
     public static function getLicenseCache()

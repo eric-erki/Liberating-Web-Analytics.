@@ -40,6 +40,16 @@
             </ul>
         {% endif %}
 
+        {% if missingLicensePlugins %}
+            <p>{{ 'CoreUpdater_MissingLicensePluginsWillBeDisabledInfo'|translate(piwik_new_version) }}</p>
+
+            <ul>
+                {% for pluginName in missingLicensePlugins %}
+                    <li>{{ pluginName }}</li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+
     </div>
 
     <div class="footer">

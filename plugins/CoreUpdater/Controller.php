@@ -130,6 +130,7 @@ class Controller extends \Piwik\Plugin\Controller
         $view->piwik_new_version = $newVersion;
 
         $incompatiblePlugins = $this->getIncompatiblePlugins($newVersion);
+        $missingLicensePlugins = $this->getPluginsWithMissingLicense();
 
         $marketplacePlugins = array();
         try {
@@ -140,6 +141,7 @@ class Controller extends \Piwik\Plugin\Controller
 
         $view->marketplacePlugins = $marketplacePlugins;
         $view->incompatiblePlugins = $incompatiblePlugins;
+        $view->missingLicensePlugins = $missingLicensePlugins;
         $view->piwik_latest_version_url = $this->updater->getArchiveUrl($newVersion);
         $view->can_auto_update  = Filechecks::canAutoUpdate();
         $view->makeWritableCommands = Filechecks::getAutoUpdateMakeWritableMessage();
@@ -347,6 +349,18 @@ class Controller extends \Piwik\Plugin\Controller
         $view->warningMessages = $this->warningMessages;
         $view->errorMessages = $this->errorMessages;
         $view->deactivatedPlugins = $this->deactivatedPlugins;
+    }
+
+    private function getPluginsWithMissingLicense()
+    {
+        $pluginManager = PluginManager::getInstance();
+        $missing = array();
+        foreach ($pluginManager->getLoadedPlugins() as $plugin) {
+            if ($pluginManager->isPluginWithMissingLicense($plugin)) {
+                $missing[] = $plugin->getPluginName();
+            }
+        }
+        return $missing;
     }
 
     private function getIncompatiblePlugins($piwikVersion)

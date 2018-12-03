@@ -98,6 +98,13 @@ abstract class SystemTestCase extends PHPUnit_Framework_TestCase
         $fixture->performTearDown();
     }
 
+    protected function tearDown()
+    {
+        $this->printApiTestFailures();
+
+        parent::tearDown();
+    }
+
     /**
      * Returns true if continuous integration running this request
      * Useful to exclude tests which may fail only on this setup
@@ -639,18 +646,24 @@ abstract class SystemTestCase extends PHPUnit_Framework_TestCase
 
     private function printApiTestFailures()
     {
-        if (!empty($this->missingExpectedFiles)) {
-            $expectedDir = dirname(reset($this->missingExpectedFiles));
+        $missingExpectedFiles = $this->missingExpectedFiles;
+        $this->missingExpectedFiles = [];
+
+        $comparisonFailures = $this->comparisonFailures;
+        $this->comparisonFailures = [];
+
+        if (!empty($missingExpectedFiles)) {
+            $expectedDir = dirname(reset($missingExpectedFiles));
             $this->fail(" ERROR: Could not find expected API output '"
-                . implode("', '", $this->missingExpectedFiles)
+                . implode("', '", $missingExpectedFiles)
                 . "'. For new tests, to pass the test, you can copy files from the processed/ directory into"
                 . " $expectedDir  after checking that the output is valid. %s ");
         }
 
         // Display as one error all sub-failures
-        if (!empty($this->comparisonFailures)) {
+        if (!empty($comparisonFailures)) {
             $this->printComparisonFailures();
-            throw reset($this->comparisonFailures);
+            throw reset($comparisonFailures);
         }
     }
 

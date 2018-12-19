@@ -68,8 +68,13 @@ class Actions extends BaseFilter
             }
         });
 
+        $isPageTitle = $this->isPageTitleType;
+
         // TODO can we remove this one again?
-        $table->queueFilter('GroupBy', array('label', function ($label) {
+        $table->queueFilter('GroupBy', array('label', function ($label) use ($isPageTitle) {
+            if ($isPageTitle) {
+                $label = trim($label);
+            }
             return urldecode($label);
         }));
 

@@ -34,19 +34,19 @@ class Actions extends BaseFilter
      */
     public function filter($table)
     {
-        $table->filter(function (DataTable $dataTable) {
+        // for BC, we read the old style delimiter first (see #1067)
+        $actionDelimiter = @Config::getInstance()->General['action_category_delimiter'];
+        if (empty($actionDelimiter)) {
+            if ($this->isPageTitleType) {
+                $actionDelimiter = Config::getInstance()->General['action_title_category_delimiter'];
+            } else {
+                $actionDelimiter = Config::getInstance()->General['action_url_category_delimiter'];
+            }
+        }
+        
+        $table->filter(function (DataTable $dataTable) use ($actionDelimiter) {
 
             $defaultActionName = Config::getInstance()->General['action_default_name'];
-
-            // for BC, we read the old style delimiter first (see #1067)
-            $actionDelimiter = @Config::getInstance()->General['action_category_delimiter'];
-            if (empty($actionDelimiter)) {
-                if ($this->isPageTitleType) {
-                    $actionDelimiter = Config::getInstance()->General['action_title_category_delimiter'];
-                } else {
-                    $actionDelimiter = Config::getInstance()->General['action_url_category_delimiter'];
-                }
-            }
 
             foreach ($dataTable->getRows() as $row) {
                 $url = $row->getMetadata('url');
@@ -71,8 +71,8 @@ class Actions extends BaseFilter
         $isPageTitle = $this->isPageTitleType;
 
         // TODO can we remove this one again?
-        $table->queueFilter('GroupBy', array('label', function ($label) use ($isPageTitle) {
-            if ($isPageTitle) {
+        $table->queueFilter('GroupBy', array('label', function ($label) use ($isPageTitle, $actionDelimiter) {
+            if ($isPageTitle && $actionDelimiter === '') {
                 $label = trim($label);
             }
             return urldecode($label);

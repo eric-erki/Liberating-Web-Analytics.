@@ -210,7 +210,7 @@ class Parameters
     public function isDayArchive()
     {
         $period = $this->getPeriod();
-        $secondsInPeriod = $period->getDateEnd()->getTimestampUTC() - $period->getDateStart()->getTimestampUTC();
+        $secondsInPeriod = $period->getDateEnd()->getTimestamp() - $period->getDateStart()->getTimestamp();
         $oneDay = $secondsInPeriod < Date::NUM_SECONDS_IN_DAY;
 
         return $oneDay;

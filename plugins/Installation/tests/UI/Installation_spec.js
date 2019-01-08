@@ -21,8 +21,8 @@ describe("Installation", function () {
         testEnvironment.tablesPrefix = 'piwik_';
         testEnvironment.save();
 
-        if (fs.exists(testEnvironment.configFileLocal)) {
-            fs.remove(testEnvironment.configFileLocal);
+        if (fs.existsSync(testEnvironment.configFileLocal)) {
+            fs.unlinkSync(testEnvironment.configFileLocal);
         }
     });
 
@@ -88,24 +88,28 @@ describe("Installation", function () {
 
         expect(await page.screenshot({ fullPage: true })).to.matchImage('db_setup_fail');
     });
-return; // next test times out
+
     it("should display the tables created page when next is clicked on the db setup page w/ correct info entered in the form", async function() {
         const dbInfo = testEnvironment.readDbInfoFromConfig();
         const username = dbInfo.username;
         const password = dbInfo.password;
+        console.log(1);
         await page.type('input[name="username"]', username);
 
+        console.log(2);
         if (password) {
             await page.type('input[name="password"]', password);
         }
-
+        console.log(3);
         await page.type('input[name="dbname"]', 'newdb');
+        console.log(4);
         await page.click('.btn');
+        console.log(5);
         await page.waitForNetworkIdle();
-
+        console.log(6);
         expect(await page.screenshot({ fullPage: true })).to.matchImage('db_created');
     });
-
+return;
     it("should display the superuser configuration page when next is clicked on the tables created page", async function() {
         await page.click('.next-step .btn');
         await page.waitForNetworkIdle();

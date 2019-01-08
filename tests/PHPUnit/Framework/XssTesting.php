@@ -172,8 +172,6 @@ JS;
         } catch (\Exception $ex) {
             print "XssTesting::sanityCheck() failed, got: " . var_export($actualEntries, true)
                 . "\nexpected: " . var_export($expectedEntries, true);
-
-            throw $ex;
         }
     }
 

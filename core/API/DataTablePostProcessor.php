@@ -9,6 +9,7 @@
 namespace Piwik\API;
 
 use Exception;
+use Piwik\API\DataTableManipulator\DataComparison;
 use Piwik\API\DataTableManipulator\Flattener;
 use Piwik\API\DataTableManipulator\LabelFilter;
 use Piwik\API\DataTableManipulator\ReportTotalsCalculator;
@@ -108,6 +109,7 @@ class DataTablePostProcessor
         // TODO: when calculating metrics before hand, only calculate for needed metrics, not all. NOTE:
         //       this is non-trivial since it will require, eg, to make sure processed metrics aren't added
         //       after pivotBy is handled.
+
         $dataTable = $this->applyPivotByFilter($dataTable);
         $dataTable = $this->applyTotalsCalculator($dataTable);
         $dataTable = $this->applyFlattener($dataTable);
@@ -130,6 +132,14 @@ class DataTablePostProcessor
         $dataTable = $this->applyRequestedColumnDeletion($dataTable);
         $dataTable = $this->applyLabelFilter($dataTable);
         $dataTable = $this->applyMetricsFormatting($dataTable);
+        $dataTable = $this->compareDate($dataTable);
+        return $dataTable;
+    }
+
+    private function compareDate(DataTableInterface $dataTable)
+    {
+        $calculator = new DataComparison($this->apiModule, $this->apiMethod, $this->request, $this->report);
+        $dataTable  = $calculator->calculate($dataTable);
         return $dataTable;
     }
 

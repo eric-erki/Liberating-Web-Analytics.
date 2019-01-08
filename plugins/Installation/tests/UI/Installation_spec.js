@@ -98,6 +98,7 @@ describe("Installation", function () {
 
         console.log(2);
         if (password) {
+            console.log(2.5);
             await page.type('input[name="password"]', password);
         }
         console.log(3);

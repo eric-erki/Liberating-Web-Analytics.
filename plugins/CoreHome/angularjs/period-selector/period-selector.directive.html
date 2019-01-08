@@ -81,6 +81,22 @@
                     </div>
                 </td>
             </tr>
+            <tr>
+                <td colspan="2">
+                    <input class="browser-default" type="checkbox" ng-model="periodSelector.compareToEnabled">
+                    <span ng-show="!periodSelector.compareToEnabled" ng-click="periodSelector.compareToEnabled=true">Compare</span>
+                    <span ng-show="periodSelector.compareToEnabled">
+                        Compare to:
+                        <select class="browser-default" ng-model="periodSelector.compareToMethod"
+                                ng-options="o.id as o.label for o in periodSelector.compareToMethods"></select>
+                        <br />
+                        <input ng-disabled="periodSelector.compareToMethod !== 'custom'" type="text" ng-model="periodSelector.compareDateFrom">
+                        to
+                        <input ng-disabled="periodSelector.compareToMethod !== 'custom'" type="text" ng-model="periodSelector.compareDateTo">
+                    </span>
+
+                </td>
+            </tr>
         </table>
     </div>
 </div>

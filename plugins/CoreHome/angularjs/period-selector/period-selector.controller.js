@@ -25,6 +25,15 @@
         vm.startRangeDate = null;
         vm.endRangeDate = null;
         vm.isRangeValid = null;
+        vm.compareToEnabled = false;
+        vm.compareDateFrom = '';
+        vm.compareDateTo = '';
+        vm.compareToMethod = 'previousDate';
+        vm.compareToMethods = [
+            {id: 'custom', label: 'Custom'},
+            {id: 'previousDate', label: 'Previous Date'},
+            {id: 'previousYear', label: 'Previous Year'}
+        ];
 
         vm.isLoadingNewPage = false;
 

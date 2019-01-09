@@ -232,6 +232,7 @@ PAGE_METHODS_TO_PROXY.forEach(function (methodName) {
             });
         }
 console.log('after 2');
+        console.log(result);
         return result;
     };
 });

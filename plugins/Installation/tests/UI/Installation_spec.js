@@ -104,7 +104,7 @@ describe("Installation", function () {
         console.log(3);
         await page.type('input[name="dbname"]', 'newdb');
         console.log(4);
-        await page.click('.btn');
+        await page.click('#submit-0');
         console.log(5);
         await page.waitForNetworkIdle();
         console.log(6);

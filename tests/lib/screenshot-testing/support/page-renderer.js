@@ -222,14 +222,16 @@ PAGE_METHODS_TO_PROXY.forEach(function (methodName) {
             args[0] = url;
         }
 
+        console.log('before');
         let result = this.webpage[methodName](...args);
+        console.log('after');
 
         if (result && result.then && AUTO_WAIT_METHODS[methodName]) {
             result = result.then((value) => {
                 return this.waitForNetworkIdle().then(() => value);
             });
         }
-
+console.log('after 2');
         return result;
     };
 });

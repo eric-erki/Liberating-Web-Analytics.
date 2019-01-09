@@ -93,6 +93,11 @@ describe("Installation", function () {
         const dbInfo = testEnvironment.readDbInfoFromConfig();
         const username = dbInfo.username;
         const password = dbInfo.password;
+
+        console.log(-1);
+        await page.type('input[name="username"]', username);
+        console.log(0);
+        await page.type('input[name="dbname"]', 'newdb');
         console.log(1);
         await page.click('#submit-0');
         console.log(2);
@@ -100,8 +105,8 @@ describe("Installation", function () {
         console.log(3);
         expect(await page.screenshot({ fullPage: true })).to.matchImage('db_created');
         return;
+
         console.log(1);
-        await page.type('input[name="username"]', username);
 
         console.log(2);
         if (password) {

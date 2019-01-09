@@ -125,6 +125,7 @@ Application.prototype.loadTestModules = function () {
         require(path);
     });
 
+    options.tests = ['Installation'];
     // filter suites to run
     if (options.tests.length) {
         mocha.suite.suites = mocha.suite.suites.filter(function (suite) {

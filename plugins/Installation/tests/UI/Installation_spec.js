@@ -99,7 +99,7 @@ describe("Installation", function () {
         console.log(0);
         await page.type('input[name="dbname"]', 'newdb');
         console.log(1);
-        page.click('#submit-0');
+        await page.click('#submit-0');
         console.log(2);
         await page.waitForNetworkIdle();
         console.log(3);

@@ -222,27 +222,22 @@ PAGE_METHODS_TO_PROXY.forEach(function (methodName) {
             args[0] = url;
         }
 
-        console.log('before');
         let result = this.webpage[methodName](...args);
-        console.log('after');
 
         if (result && result.then && AUTO_WAIT_METHODS[methodName]) {
             result = result.then((value) => {
                 return this.waitForNetworkIdle().then(() => value);
             });
         }
-console.log('after 2');
-        console.log(result);
+
         return result;
     };
 });
 
 PageRenderer.prototype.waitForNetworkIdle = async function () {
-    console.log('start:', this.activeRequestCount);
     await new Promise(resolve => setTimeout(resolve, AJAX_IDLE_THRESHOLD));
 
     while (this.activeRequestCount > 0) {
-        console.log('next:', this.activeRequestCount);
         await new Promise(resolve => setTimeout(resolve, AJAX_IDLE_THRESHOLD));
     }
 };
@@ -312,6 +307,10 @@ PageRenderer.prototype._setupWebpageEvents = function () {
 
         var url = request.url();
 
+        if (VERBOSE) {
+            this._logMessage('Requesting resource (#' + request.id + 'URL:' + url + ')');
+        }
+
         // replaces the requested URL to the piwik URL w/ a port, if it does not have one.  This allows us to run UI
         // tests when Piwik is on a port, w/o having to have different UI screenshots. (This is one half of the
         // solution, the other half is in config/environment/ui-test.php, where we remove all ports from Piwik URLs.)
@@ -330,19 +329,11 @@ PageRenderer.prototype._setupWebpageEvents = function () {
                 });
 
 
-                if (VERBOSE) {
-                    this._logMessage('Requesting resource (#' + request.id + 'URL:' + url + ')');
-                }
-
                 return;
             }
         }
 
         request.continue();
-
-        if (VERBOSE) {
-            this._logMessage('Requesting resource (#' + request.id + 'URL:' + url + ')');
-        }
     });
 
     // TODO: self.aborted?

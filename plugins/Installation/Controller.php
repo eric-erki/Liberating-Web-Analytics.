@@ -174,7 +174,7 @@ class Controller extends \Piwik\Plugin\ControllerAdmin
             $this->getInstallationSteps(),
             __FUNCTION__
         );
-
+throw new \Exception("stopping short");
         if ($this->getParam('deleteTables')) {
             Manager::getInstance()->clearPluginsInstalledConfig();
             Db::dropAllTables();

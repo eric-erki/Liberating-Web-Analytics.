@@ -16,6 +16,13 @@
         var date   = getUrlParam('date');
         var segment = getUrlParam('segment');
 
+        var period1 = getUrlParam('period1');
+        var date1   = getUrlParam('date1');
+        var segment1 = getUrlParam('segment1');
+        var segment2 = getUrlParam('segment2');
+        var segment3 = getUrlParam('segment3');
+        var segment4 = getUrlParam('segment4');
+
         function markAllCategoriesAsInactive()
         {
             angular.forEach(menuModel.menu, function (cat) {
@@ -76,8 +83,26 @@
             url    += '&category=' + encodeURIComponent(category.id);
             url    += '&subcategory=' + encodeURIComponent(subcategory.id);
 
+            if (date1) {
+                url+= '&date1='+ date1;
+            }
+            if (period1) {
+                url+= '&period1='+ period1;
+            }
             if (segment) {
                 url+= '&segment='+ segment;
+            }
+            if (segment1) {
+                url+= '&segment1='+ segment1;
+            }
+            if (segment2) {
+                url+= '&segment2='+ segment2;
+            }
+            if (segment3) {
+                url+= '&segment3='+ segment3;
+            }
+            if (segment4) {
+                url+= '&segment4='+ segment4;
             }
             return url;
         }
@@ -149,6 +174,13 @@
             period = getUrlParam('period');
             date   = getUrlParam('date');
             segment = getUrlParam('segment');
+
+            period1 = getUrlParam('period1');
+            date1   = getUrlParam('date1');
+            segment1 = getUrlParam('segment1');
+            segment2 = getUrlParam('segment2');
+            segment3 = getUrlParam('segment3');
+            segment4 = getUrlParam('segment4');
 
             if (!category || !subcategory) {
                 return;

@@ -47,10 +47,34 @@
         vm.onRangeChange = onRangeChange;
         vm.isApplyEnabled = isApplyEnabled;
         vm.$onInit = init;
+        vm.compare = compare;
 
         function init() {
             vm.updateSelectedValuesFromHash();
             initTopControls(); // must be called when a top control changes width
+        }
+
+        function compare() {
+            if (vm.compareToEnabled) {
+                var dateFrom = vm.compareDateFrom,
+                    dateTo = vm.compareDateTo,
+                    oDateFrom = piwikPeriods.parseDate(dateFrom),
+                    oDateTo = piwikPeriods.parseDate(dateTo);
+
+                if (!isValidDate(oDateFrom)
+                    || !isValidDate(oDateTo)
+                    || oDateFrom > oDateTo
+                ) {
+                    // TODO: use a notification instead?
+                    $('#alert').find('h2').text(_pk_translate('General_InvalidDateRange'));
+                    piwik.helper.modalConfirm('#alert', {});
+                    return;
+                }
+
+                propagateNewUrlParams(dateFrom + ',' + dateTo, 'range', 'date1', 'period1');
+            } else {
+                propagateNewUrlParams('', '', 'date1', 'period1');
+            }
         }
 
         function $onChanges(changesObj) {
@@ -103,6 +127,16 @@
             } else {
                 vm.dateValue = piwikPeriods.parseDate(strDate);
                 setRangeStartEndFromPeriod(strPeriod, strDate);
+            }
+
+
+            var strDate1 = getQueryParamValue('date1');
+            var strPeriod1 = getQueryParamValue('period1');
+            if (strDate1 && strPeriod1) {
+                var period = piwikPeriods.get(strPeriod1).parse(strDate1);
+                vm.compareDateFrom = formatDate(period.startDate);
+                vm.compareDateTo = formatDate(period.endDate);
+                vm.compareToEnabled = true;
             }
         }
 
@@ -193,7 +227,13 @@
             vm.endRangeDate = formatDate(dateRange[1] > piwikMaxDate ? piwikMaxDate : dateRange[1]);
         }
 
-        function propagateNewUrlParams(date, period) {
+        function propagateNewUrlParams(date, period, dateParam, periodParam) {
+            if (!dateParam) {
+                dateParam = 'date';
+            }
+            if (!periodParam) {
+                periodParam = 'period'
+            }
             if (piwik.helper.isAngularRenderingThePage()) {
                 vm.closePeriodSelector(); // defined in directive
 
@@ -201,8 +241,16 @@
                 if (date !== $search.date || period !== $search.period) {
                     // eg when using back button the date might be actually already changed in the URL and we do not
                     // want to change the URL again
-                    $search.date = date;
-                    $search.period = period;
+                    if (date) {
+                        $search[dateParam] = date;
+                    } else {
+                        delete $search[dateParam];
+                    }
+                    if (period) {
+                        $search[periodParam] = period;
+                    } else {
+                        delete $search[periodParam];
+                    }
                     $location.search($search);
                 }
 
@@ -213,7 +261,7 @@
 
             // not in an angular context (eg, embedded dashboard), so must actually
             // change the URL
-            broadcast.propagateNewPage('date=' + date + '&period=' + period);
+            broadcast.propagateNewPage(dateParam + '=' + date + '&' + periodParam + '=' + period);
         }
 
         function isValidDate(d) {

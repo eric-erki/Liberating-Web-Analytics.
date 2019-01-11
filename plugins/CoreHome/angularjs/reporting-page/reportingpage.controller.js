@@ -19,6 +19,13 @@
         var currentDate = null;
         var currentSegment = null;
 
+        var currentDate1 = null;
+        var currentPeriod1 = null;
+        var currentSegment1 = null;
+        var currentSegment2 = null;
+        var currentSegment3 = null;
+        var currentSegment4 = null;
+
         function renderInitialPage()
         {
             var $search = $location.search();
@@ -88,12 +95,24 @@
             var period = $search.period;
             var date = $search.date;
             var segment = $search.segment;
+            var segment1 = $search.segment1;
+            var segment2 = $search.segment2;
+            var segment3 = $search.segment3;
+            var segment4 = $search.segment4;
+            var date1 = $search.date1;
+            var period1 = $search.period1;
 
             if (category === currentCategory
                 && subcategory === currentSubcategory
                 && period === currentPeriod
                 && date === currentDate
-                && segment === currentSegment) {
+                && segment === currentSegment
+                && date1 === currentDate1
+                && period1 === currentPeriod1
+                && segment1 === currentSegment1
+                && segment2 === currentSegment2
+                && segment3 === currentSegment3
+                && segment4 === currentSegment4) {
                 // this page is already loaded
                 return;
             }
@@ -101,6 +120,12 @@
             currentPeriod = period;
             currentDate = date;
             currentSegment = segment;
+            currentDate1 = date1;
+            currentPeriod1 = period1;
+            currentSegment1 = segment1;
+            currentSegment2 = segment2;
+            currentSegment3 = segment3;
+            currentSegment4 = segment4;
 
             $scope.renderPage(category, subcategory);
         });

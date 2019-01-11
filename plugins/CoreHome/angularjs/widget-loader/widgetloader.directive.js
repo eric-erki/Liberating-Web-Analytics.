@@ -83,8 +83,11 @@
                             delete $urlParams['subcategory'];
                         }
 
-                        if (piwikUrl.getSearchParam('segment')) {
-                            $urlParams['segment'] = 'segment';
+                        var segments = ['segment', 'segment1', 'segment2', 'segment3', 'segment4', 'date1', 'period1'];
+                        for (var i = 0; i < segments.length; i++) {
+                            if (piwikUrl.getSearchParam(segments[i])) {
+                                $urlParams[segments[i]] = segments[i];
+                            }
                         }
 
                         angular.forEach($urlParams, function (value, key) {

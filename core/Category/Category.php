@@ -44,6 +44,13 @@ class Category
     protected $icon = '';
 
     /**
+     * Help text to display for this category.
+     *
+     * @var null
+     */
+    protected $help = null;
+
+    /**
      * @param int $order
      * @return static
      */
@@ -121,4 +128,21 @@ class Category
         return $this->icon;
     }
 
+    /**
+     * Get the help text (if any) for this category.
+     * @return null
+     */
+    public function getHelp()
+    {
+        return $this->help;
+    }
+
+    /**
+     * Sets the help text for this category.
+     * @param null $help
+     */
+    public function setHelp($help)
+    {
+        $this->help = $help;
+    }
 }

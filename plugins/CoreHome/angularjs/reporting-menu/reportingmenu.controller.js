@@ -66,6 +66,12 @@
                 subcategory.name = subsubcategory.name;
                 subsubcategory.active = true;
             }
+        }
+
+        $scope.showHelp = function (category) {
+            var UI = require('piwik/UI');
+            var notification = new UI.Notification();
+            notification.show(category.help, { context: 'info', id: 'reportingmenu-help', type: 'persistent' });
         };
 
         $scope.makeUrl = function (category, subcategory) {
@@ -80,7 +86,7 @@
                 url+= '&segment='+ segment;
             }
             return url;
-        }
+        };
 
         $scope.loadCategory = function (category) {
             if (category.active) {
@@ -105,6 +111,9 @@
         };
 
         $scope.loadSubcategory = function (category, subcategory) {
+            var UI = require('piwik/UI');
+            UI.Notification.prototype.remove('reportingmenu-help');
+
             if (subcategory && subcategory.active) {
                 // this menu item is already active, a location change success would not be triggered,
                 // instead trigger an event

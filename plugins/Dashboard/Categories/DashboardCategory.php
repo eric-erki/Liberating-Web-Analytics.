@@ -15,4 +15,5 @@ class DashboardCategory extends Category
     protected $id = 'Dashboard_Dashboard';
     protected $order = 0;
     protected $icon = 'icon-reporting-dashboard';
+    protected $help = 'Dashboard_DashboardCategoryHelp';
 }

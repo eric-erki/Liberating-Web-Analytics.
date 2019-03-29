@@ -924,6 +924,7 @@ class API extends \Piwik\Plugin\API
 
         if ($passwordHasBeenUpdated
             && $requirePasswordConfirmation
+            && Config::getInstance()->General['enable_password_change_email']
         ) {
             $this->sendPasswordChangedEmail($userInfo);
         }

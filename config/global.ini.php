@@ -669,6 +669,9 @@ enable_auto_update = 1
 ; If set to 0 it also disables the "sent plugin update emails" feature in general and the related setting in the UI.
 enable_update_communication = 1
 
+; Enables or suppresses an email which is sent to users when their password is changed.
+enable_password_change_email = 1
+    
 ; Comma separated list of plugin names for which console commands should be loaded (applies when Matomo is not installed yet)
 always_load_commands_from_plugin=
 

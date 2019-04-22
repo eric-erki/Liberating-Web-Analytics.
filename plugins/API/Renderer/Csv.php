@@ -37,6 +37,10 @@ class Csv extends ApiRenderer
         $convertToUnicode = Common::getRequestVar('convertToUnicode', true, 'int', $this->request);
         $idSite = Common::getRequestVar('idSite', false, 'int', $this->request);
 
+        if (empty($idSite)) {
+            $idSite = 'all';
+        }
+
         /** @var \Piwik\DataTable\Renderer\Csv $tableRenderer */
         $tableRenderer = $this->buildDataTableRenderer($dataTable);
         $tableRenderer->setConvertToUnicode($convertToUnicode);

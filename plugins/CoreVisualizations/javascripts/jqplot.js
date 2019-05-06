@@ -585,9 +585,37 @@
             new seriesPickerClass(this.targetDivId, this, initiallyShowAll);
 
             if (!initiallyShowAll) {
-                // initially, show only the first series
-                this.data = [this.data[0]];
-                this.jqplotParams.series = [this.jqplotParams.series[0]];
+
+                var initialDataSelection = 0;
+                var $rowEvolution = $('#'+this.targetDivId).closest('.rowevolution');
+
+                var newData = [];
+                var newSeries = [];
+                if ($rowEvolution.data('initialSelection')) {
+                    initialDataSelection = $rowEvolution.data('initialSelection');
+
+                    if (angular.isArray(initialDataSelection)) {
+                        for (var j = 0; j < initialDataSelection.length; j++) {
+                            if (initialDataSelection[j]
+                                && j in this.data
+                                && j in this.jqplotParams.series) {
+                                newData.push(this.data[j]);
+                                newSeries.push(this.jqplotParams.series[j]);
+                            }
+                        }
+                    }
+                }
+
+                if (newData.length) {
+                    // restore original selection
+                    this.data = newData;
+                    this.jqplotParams.series = newSeries;
+                } else {
+                    // initially, show only the first series
+                    this.data = [this.data[0]];
+                    this.jqplotParams.series = [this.jqplotParams.series[0]];
+                }
+
                 this.setYTicks();
             }
         },
@@ -742,11 +770,22 @@ RowEvolutionSeriesToggle.prototype = JQPlotExternalSeriesToggle.prototype;
 
 RowEvolutionSeriesToggle.prototype.attachEvents = function () {
     var self = this;
-    this.seriesPickers = this.target.closest('.rowevolution').find('table.metrics tr');
+
+    var $rowEvolution = this.target.closest('.rowevolution');
+    this.seriesPickers = $rowEvolution.find('table.metrics tr');
+
+    var initialDataSelection = [true];
+
+    if ($rowEvolution.data('initialSelection')) {
+        initialDataSelection = $rowEvolution.data('initialSelection');
+    }
 
     this.seriesPickers.each(function (i) {
         var el = $(this);
+
         el.off('click').on('click', function (e) {
+            // we are storing this info on the element as the series picker and the jqplot object gets recreated whenever
+            // we change a period so we cannot persist the selection there.
             if (e.shiftKey) {
                 self.toggleSeries(i);
 
@@ -754,10 +793,11 @@ RowEvolutionSeriesToggle.prototype.attachEvents = function () {
             } else {
                 self.showSeries(i);
             }
+            $rowEvolution.data('initialSelection', self.activated);
             return false;
         });
 
-        if (i == 0 || self.initiallyShowAll) {
+        if ((i in initialDataSelection && initialDataSelection[i]) || self.initiallyShowAll) {
             // show the active series
             // if initiallyShowAll, all are active; otherwise only the first one
             self.activated.push(true);

@@ -44,6 +44,8 @@ class VisitorLog extends Visualization
             'filter_sort_order',
         ));
 
+        $this->config->show_periods = true;
+
         if (!is_numeric($this->requestConfig->filter_limit)
             || $this->requestConfig->filter_limit == -1 // 'all' is not supported for this visualization
         ) {

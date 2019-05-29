@@ -9,7 +9,6 @@
 namespace Piwik\Plugins\CoreHome\Columns;
 
 use Piwik\Plugin\Dimension\VisitDimension;
-use Piwik\Plugins\CoreHome\Segment;
 use Piwik\Tracker\Action;
 use Piwik\Tracker\Request;
 use Piwik\Tracker\Visitor;
@@ -18,15 +17,9 @@ class VisitorDaysSinceFirst extends VisitDimension
 {
     protected $columnName = 'visitor_days_since_first';
     protected $columnType = 'SMALLINT(5) UNSIGNED NULL';
-
-    protected function configureSegments()
-    {
-        $segment = new Segment();
-        $segment->setType(Segment::TYPE_METRIC);
-        $segment->setSegment('daysSinceFirstVisit');
-        $segment->setName('General_DaysSinceFirstVisit');
-        $this->addSegment($segment);
-    }
+    protected $segmentName = 'daysSinceFirstVisit';
+    protected $nameSingular = 'General_DaysSinceFirstVisit';
+    protected $type = self::TYPE_NUMBER;
 
     /**
      * @param Request $request
@@ -36,6 +29,11 @@ class VisitorDaysSinceFirst extends VisitDimension
      */
     public function onNewVisit(Request $request, Visitor $visitor, $action)
     {
+        // if the visitor is new, force days since first to 0, to ignore any potential bad values for _idts
+        if (!$visitor->isVisitorKnown()) {
+            return 0;
+        }
+
         return $request->getDaysSinceFirstVisit();
     }
 

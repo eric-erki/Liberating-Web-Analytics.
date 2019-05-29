@@ -177,8 +177,8 @@ class Process
             return false;
         }
 
-        if (count(self::getRunningProcesses()) > 0) {
-            return true;
+        if (!in_array(getmypid(), self::getRunningProcesses())) {
+            return false;
         }
 
         if (!self::isProcFSMounted()) {
@@ -240,12 +240,21 @@ class Process
         return strpos($type, 'proc') === 0;
     }
 
+    public static function getListOfRunningProcesses()
+    {
+        $processes = `ps ex 2>/dev/null`;
+        if (empty($processes)) {
+            return array();
+        }
+        return explode("\n", $processes);
+    }
+
     /**
      * @return int[] The ids of the currently running processes
      */
      public static function getRunningProcesses()
      {
-         $ids = explode("\n", trim(`ps ex 2>/dev/null | awk '{print $1}' 2>/dev/null`));
+         $ids = explode("\n", trim(`ps ex 2>/dev/null | awk '! /defunct/ {print $1}' 2>/dev/null`));
 
          $ids = array_map('intval', $ids);
          $ids = array_filter($ids, function ($id) {

@@ -66,12 +66,13 @@
             if (!self.param.filter_pattern_recursive) {
                 self.numberOfSubtables = rows.filter('.subDataTable').click(function () {
                     self.onClickActionSubDataTable(this)
-                }).size();
+                }).length;
             }
             self.applyCosmetics(domElem, rows);
             self.handleColumnHighlighting(domElem);
             self.handleRowActions(domElem, rows);
             self.handleLimit(domElem);
+            self.handlePeriod(domElem);
             self.handleAnnotationsButton(domElem);
             self.handleExportBox(domElem);
             self.handleSort(domElem);
@@ -112,7 +113,7 @@
         },
 
         openSubtableFromSubtableIfOnlyOneSubtableGiven: function (domElem) {
-            var hasOnlyOneRow = domElem.length === 1
+            var hasOnlyOneRow = domElem.length === 1;
             var hasOnlyOneSubtable = domElem.hasClass('subDataTable');
 
             if (hasOnlyOneRow && hasOnlyOneSubtable) {

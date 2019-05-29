@@ -35,8 +35,8 @@ class HttpTest extends \PHPUnit_Framework_TestCase
     public function testFetchRemoteFile($method)
     {
         $this->assertNotNull(Http::getTransportMethod());
-        $result = Http::sendHttpRequestBy($method, Fixture::getRootUrl() . 'piwik.js', 30);
-        $this->assertTrue(strpos($result, 'Piwik') !== false);
+        $result = Http::sendHttpRequestBy($method, Fixture::getRootUrl() . 'matomo.js', 30);
+        $this->assertTrue(strpos($result, 'Matomo') !== false);
     }
 
     public function testFetchApiLatestVersion()
@@ -73,7 +73,7 @@ class HttpTest extends \PHPUnit_Framework_TestCase
 
         $result = Http::sendHttpRequestBy(
             $method,
-            Fixture::getRootUrl() . '/piwik.js',
+            Fixture::getRootUrl() . '/matomo.js',
             30,
             $userAgent = null,
             $destinationPath = null,
@@ -229,9 +229,36 @@ class HttpTest extends \PHPUnit_Framework_TestCase
     /**
      * @dataProvider getMethodsToTest
      */
+    public function testHttpCustomHeaders($method)
+    {
+        $result = Http::sendHttpRequestBy(
+            $method,
+            Fixture::getRootUrl() . 'tests/PHPUnit/Integration/Http/AdditionalHeaders.php',
+            30,
+            $userAgent = null,
+            $destinationPath = null,
+            $file = null,
+            $followDepth = 0,
+            $acceptLanguage = false,
+            $acceptInvalidSslCertificate = false,
+            $byteRange = false,
+            $getExtendedInfo = false,
+            $httpMethod = 'POST',
+            $httpUsername = '',
+            $httpPassword = '',
+            array(),
+            array('CustomHeader: customdata')
+        );
+
+        $this->assertEquals('customdata', $result);
+    }
+
+    /**
+     * @dataProvider getMethodsToTest
+     */
     public function testHttpsWorksWithValidCertificate($method)
     {
-        $result = Http::sendHttpRequestBy($method, 'https://builds.piwik.org/LATEST', 10);
+        $result = Http::sendHttpRequestBy($method, 'https://builds.matomo.org/LATEST', 10);
 
         $this->assertStringMatchesFormat('%d.%d.%d', $result);
     }
@@ -260,12 +287,9 @@ class HttpTest extends \PHPUnit_Framework_TestCase
         Http::sendHttpRequestBy('fopen', 'https://self-signed.badssl.com/', 10);
     }
 
-    /**
-     * We check that HTTPS is not supported with the "socket" method
-     */
-    public function testSocketHttpsWorksEvenWithInvalidCertificate()
+    public function testSocketHttpsWorksWithValidCertificate()
     {
-        $result = Http::sendHttpRequestBy('socket', 'https://divezone.net', 10);
+        $result = Http::sendHttpRequestBy('socket', 'https://piwik.org/', 10);
         $this->assertNotEmpty($result);
     }
 }

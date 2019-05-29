@@ -7,10 +7,12 @@
  */
 namespace Piwik\Metrics;
 
+use Piwik\Archive\DataTableFactory;
 use Piwik\Common;
 use Piwik\DataTable;
 use Piwik\NumberFormatter;
 use Piwik\Piwik;
+use Piwik\Plugin\ArchivedMetric;
 use Piwik\Plugin\Metric;
 use Piwik\Plugin\ProcessedMetric;
 use Piwik\Plugin\Report;
@@ -25,9 +27,6 @@ class Formatter
 {
     const PROCESSED_METRICS_FORMATTED_FLAG = 'processed_metrics_formatted';
 
-    private $decimalPoint = null;
-    private $thousandsSeparator = null;
-
     /**
      * Returns a prettified string representation of a number. The result will have
      * thousands separators and a decimal point specific to the current locale, eg,
@@ -39,14 +38,7 @@ class Formatter
      */
     public function getPrettyNumber($value, $precision = 0)
     {
-        if ($this->decimalPoint === null) {
-            $locale = localeconv();
-
-            $this->decimalPoint = $locale['decimal_point'];
-            $this->thousandsSeparator = $locale['thousands_sep'];
-        }
-
-        return number_format($value, $precision, $this->decimalPoint, $this->thousandsSeparator);
+        return NumberFormatter::getInstance()->formatNumber($value, $precision);
     }
 
     /**
@@ -152,30 +144,8 @@ class Formatter
      */
     public function getPrettyMoney($value, $idSite)
     {
-        $space = ' ';
         $currencySymbol = Site::getCurrencySymbolFor($idSite);
-        $currencyBefore =  $currencySymbol . $space;
-        $currencyAfter = '';
-        // (maybe more currencies prefer this notation?)
-        $currencySymbolToAppend = array('€', 'kr', 'zł');
-        // manually put the currency symbol after the amount
-        if (in_array($currencySymbol, $currencySymbolToAppend)) {
-            $currencyAfter = $space . $currencySymbol;
-            $currencyBefore = '';
-        }
-        // if the input is a number (it could be a string or INPUT form),
-        // and if this number is not an int, we round to precision 2
-        if (is_numeric($value)) {
-            if ($value == round($value)) {
-                // 0.0 => 0
-                $value = round($value);
-            } else {
-                $precision = GoalManager::REVENUE_PRECISION;
-                $value = sprintf("%01." . $precision . "f", $value);
-            }
-        }
-        $prettyMoney = $currencyBefore . $value . $currencyAfter;
-        return $prettyMoney;
+        return NumberFormatter::getInstance()->formatCurrency($value, $currencySymbol, GoalManager::REVENUE_PRECISION);
     }
 
     /**
@@ -188,8 +158,7 @@ class Formatter
      */
     public function getPrettyPercentFromQuotient($value)
     {
-        $result = ($value * 100) . '%';
-        return Common::forceDotAsSeparatorForDecimalPoint($result);
+        return NumberFormatter::getInstance()->formatPercent($value * 100, 4, 0);
     }
 
     /**
@@ -199,9 +168,11 @@ class Formatter
      * @param DataTable $dataTable The table to format metrics for.
      * @param Report|null $report The report the table belongs to.
      * @param string[]|null $metricsToFormat Whitelist of names of metrics to format.
+     * @param boolean $formatAll If true, will also apply formatting to non-processed metrics like revenue.
+     *                           This parameter is not currently supported and subject to change.
      * @api
      */
-    public function formatMetrics(DataTable $dataTable, Report $report = null, $metricsToFormat = null)
+    public function formatMetrics(DataTable $dataTable, Report $report = null, $metricsToFormat = null, $formatAll = false)
     {
         $metrics = $this->getMetricsToFormat($dataTable, $report);
         if (empty($metrics)
@@ -214,7 +185,8 @@ class Formatter
 
         if ($metricsToFormat !== null) {
             $metricMatchRegex = $this->makeRegexToMatchMetrics($metricsToFormat);
-            $metrics = array_filter($metrics, function (ProcessedMetric $metric) use ($metricMatchRegex) {
+            $metrics = array_filter($metrics, function ($metric) use ($metricMatchRegex) {
+                /** @var ProcessedMetric|ArchivedMetric $metric */
                 return preg_match($metricMatchRegex, $metric->getName());
             });
         }
@@ -229,10 +201,36 @@ class Formatter
                 if ($columnValue !== false) {
                     $row->setColumn($name, $metric->format($columnValue, $this));
                 }
+            }
+        }
 
-                $subtable = $row->getSubtable();
-                if (!empty($subtable)) {
-                    $this->formatMetrics($subtable, $report, $metricsToFormat);
+        foreach ($dataTable->getRows() as $row) {
+            $subtable = $row->getSubtable();
+            if (!empty($subtable)) {
+                $this->formatMetrics($subtable, $report, $metricsToFormat);
+            }
+        }
+
+        $idSite = DataTableFactory::getSiteIdFromMetadata($dataTable);
+        if (empty($idSite)) {
+            // possible when using search in visualization
+            $idSite = Common::getRequestVar('idSite', 0, 'int');
+        }
+
+        // @todo for matomo 4, should really use the Metric class to house this kind of logic
+        // format other metrics
+        if ($formatAll) {
+            foreach ($dataTable->getRows() as $row) {
+                foreach ($row->getColumns() as $column => $columnValue) {
+                    if (strpos($column, 'revenue') === false
+                        || !is_numeric($columnValue)
+                    ) {
+                        continue;
+                    }
+
+                    if ($columnValue !== false) {
+                        $row->setColumn($column, $this->getPrettyMoney($columnValue, $idSite));
+                    }
                 }
             }
         }

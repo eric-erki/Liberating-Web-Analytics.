@@ -21,6 +21,16 @@ abstract class LogTable {
     abstract public function getName();
 
     /**
+     * Get the name of the column that represents the primary key. For example "idvisit" or "idlink_va". If the table
+     * does not have a unique ID for each row, you may choose a column that comes closest to it, for example "idvisit".
+     * @return string
+     */
+    public function getIdColumn()
+    {
+        return '';
+    }
+
+    /**
      * Get the name of the column that can be used to join a visit with another table. This is the name of the column
      * that represents the "idvisit".
      * @return string
@@ -43,6 +53,21 @@ abstract class LogTable {
     public function getColumnToJoinOnIdAction()
     {
         return '';
+    }
+
+    /**
+     * If a table can neither be joined via idVisit nor idAction, it should be given a way to join with other tables
+     * so the log table can be joined via idvisit through a different table joins.
+     *
+     * For this to work it requires the same column to be present in two tables. If for example you have a table
+     * `log_foo_bar (idlogfoobar, idlogfoo)` and a table `log_foo(idlogfoo, idsite, idvisit)`, then you can in the
+     * log table instance for `log_foo_bar` return `array('log_foo' => 'idlogfoo')`. This tells the core that a join
+     * with that other log table is possible using the specified column.
+     * @return array
+     */
+    public function getWaysToJoinToOtherLogTables()
+    {
+        return array();
     }
 
     /**
@@ -72,4 +97,15 @@ abstract class LogTable {
         return;
     }
 
+    /**
+     * Get the names of the columns that represents the primary key. For example "idvisit" or "idlink_va". If the table
+     * defines the primary key based on multiple columns, you must specify them all
+     * (eg array('idvisit', 'idgoal', 'buster')).
+     *
+     * @return array
+     */
+    public function getPrimaryKey()
+    {
+        return array();
+    }
 }

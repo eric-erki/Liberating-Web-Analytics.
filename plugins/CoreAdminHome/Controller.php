@@ -17,6 +17,7 @@ use Piwik\Menu\MenuTop;
 use Piwik\Piwik;
 use Piwik\Plugin;
 use Piwik\Plugin\ControllerAdmin;
+use Piwik\Plugins\CorePluginsAdmin\CorePluginsAdmin;
 use Piwik\Plugins\Marketplace\Marketplace;
 use Piwik\Plugins\CustomVariables\CustomVariables;
 use Piwik\Plugins\LanguagesManager\LanguagesManager;
@@ -27,6 +28,7 @@ use Piwik\Translation\Translator;
 use Piwik\Url;
 use Piwik\View;
 use Piwik\Widget\WidgetsList;
+use Piwik\SettingsPiwik;
 
 class Controller extends ControllerAdmin
 {
@@ -48,18 +50,29 @@ class Controller extends ControllerAdmin
 
     public function home()
     {
+        $isInternetEnabled = SettingsPiwik::isInternetEnabled();
+        
         $isMarketplaceEnabled = Marketplace::isMarketplaceEnabled();
         $isFeedbackEnabled = Plugin\Manager::getInstance()->isPluginLoaded('Feedback');
         $widgetsList = WidgetsList::get();
 
         $hasDonateForm = $widgetsList->isDefined('CoreHome', 'getDonateForm');
         $hasPiwikBlog = $widgetsList->isDefined('RssWidget', 'rssPiwik');
+        $hasPremiumFeatures = $widgetsList->isDefined('Marketplace', 'getPremiumFeatures');
+        $hasNewPlugins = $widgetsList->isDefined('Marketplace', 'getNewPlugins');
+        $hasDiagnostics = $widgetsList->isDefined('Installation', 'getSystemCheck');
+        $hasTrackingFailures = $widgetsList->isDefined('CoreAdminHome', 'getTrackingFailures');
 
         return $this->renderTemplate('home', array(
+            'isInternetEnabled' => $isInternetEnabled,
             'isMarketplaceEnabled' => $isMarketplaceEnabled,
+            'hasPremiumFeatures' => $hasPremiumFeatures,
+            'hasNewPlugins' => $hasNewPlugins,
             'isFeedbackEnabled' => $isFeedbackEnabled,
             'hasDonateForm' => $hasDonateForm,
-            'hasPiwikBlog' => $hasPiwikBlog
+            'hasPiwikBlog' => $hasPiwikBlog,
+            'hasDiagnostics' => $hasDiagnostics,
+            'hasTrackingFailures' => $hasTrackingFailures,
         ));
     }
 
@@ -67,6 +80,13 @@ class Controller extends ControllerAdmin
     {
         $this->redirectToIndex('UsersManager', 'userSettings');
         return;
+    }
+
+    public function trackingFailures()
+    {
+        Piwik::checkUserHasSomeAdminAccess();
+
+        return $this->renderTemplate('trackingFailures');
     }
 
     public function generalSettings()
@@ -126,6 +146,12 @@ class Controller extends ControllerAdmin
             $mail['type'] = Common::getRequestVar('mailType', '');
             $mail['username'] = Common::unsanitizeInputValue(Common::getRequestVar('mailUsername', ''));
             $mail['password'] = Common::unsanitizeInputValue(Common::getRequestVar('mailPassword', ''));
+
+            if (!array_key_exists('mailPassword', $_POST)) {
+                // use old password if it wasn't set in request
+                $mail['password'] = Config::getInstance()->mail['password'];
+            }
+
             $mail['encryption'] = Common::getRequestVar('mailEncryption', '');
 
             Config::getInstance()->mail = $mail;
@@ -155,7 +181,15 @@ class Controller extends ControllerAdmin
         $viewableIdSites = APISitesManager::getInstance()->getSitesIdWithAtLeastViewAccess();
 
         $defaultIdSite = reset($viewableIdSites);
-        $view->idSite = Common::getRequestVar('idSite', $defaultIdSite, 'int');
+        $view->idSite = $this->idSite ?: $defaultIdSite;
+
+        if ($view->idSite) {
+            try {
+                $view->siteName = Site::getNameFor($view->idSite);
+            } catch (Exception $e) {
+                // ignore if site no longer exists
+            }
+        }
 
         $view->defaultReportSiteName = Site::getNameFor($view->idSite);
         $view->defaultSiteRevenue = Site::getCurrencySymbolFor($view->idSite);
@@ -212,6 +246,7 @@ class Controller extends ControllerAdmin
     {
         // Whether to display or not the general settings (cron, beta, smtp)
         $view->isGeneralSettingsAdminEnabled = self::isGeneralSettingsAdminEnabled();
+        $view->isPluginsAdminEnabled = CorePluginsAdmin::isPluginsAdminEnabled();
         if ($view->isGeneralSettingsAdminEnabled) {
             $this->displayWarningIfConfigFileNotWritable();
         }

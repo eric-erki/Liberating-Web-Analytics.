@@ -10,10 +10,14 @@ namespace Piwik\DataAccess;
 
 use Piwik\ArchiveProcessor\Parameters;
 use Piwik\Common;
+use Piwik\Container\StaticContainer;
 use Piwik\DataArray;
+use Piwik\Date;
 use Piwik\Db;
 use Piwik\Metrics;
+use Piwik\Period;
 use Piwik\Tracker\GoalManager;
+use Psr\Log\LoggerInterface;
 
 /**
  * Contains methods that calculate metrics by aggregating log data (visits, actions, conversions,
@@ -141,16 +145,28 @@ class LogAggregator
     private $queryOriginHint = '';
 
     /**
+     * @var LoggerInterface
+     */
+    private $logger;
+
+
+    /**
      * Constructor.
      *
      * @param \Piwik\ArchiveProcessor\Parameters $params
      */
-    public function __construct(Parameters $params)
+    public function __construct(Parameters $params, LoggerInterface $logger = null)
     {
-        $this->dateStart = $params->getDateStart();
-        $this->dateEnd = $params->getDateEnd();
+        $this->dateStart = $params->getDateTimeStart();
+        $this->dateEnd = $params->getDateTimeEnd();
         $this->segment = $params->getSegment();
         $this->sites = $params->getIdSites();
+        $this->logger = $logger ?: StaticContainer::get('Psr\Log\LoggerInterface');
+    }
+
+    public function getSegment()
+    {
+        return $this->segment;
     }
 
     public function setQueryOriginHint($nameOfOrigiin)
@@ -168,6 +184,9 @@ class LogAggregator
             $query['sql'] = trim($query['sql']);
             $query['sql'] = 'SELECT /* ' . $this->queryOriginHint . ' */' . substr($query['sql'], strlen($select));
         }
+
+	// Log on DEBUG level all SQL archiving queries
+        $this->logger->debug($query['sql']);
 
         return $query;
     }
@@ -404,6 +423,7 @@ class LogAggregator
      * @param $dimensions
      * @param $tableName
      * @param bool $appendSelectAs
+     * @param bool $parseSelectAs
      * @return mixed
      */
     protected function getSelectDimensions($dimensions, $tableName, $appendSelectAs = true)
@@ -413,11 +433,15 @@ class LogAggregator
 
             if (!is_numeric($selectAs)) {
                 $selectAsString = $selectAs;
-            } else {
-                // if function, do not alias or prefix
-                if ($this->isFieldFunctionOrComplexExpression($field)) {
-                    $selectAsString = $appendSelectAs = false;
+            } else if ($this->isFieldFunctionOrComplexExpression($field)) {
+                // if complex expression has a select as, use it
+                if (!$appendSelectAs && preg_match('/\s+AS\s+(.*?)\s*$/', $field, $matches)) {
+                    $field = $matches[1];
+                    continue;
                 }
+
+                // if function w/o select as, do not alias or prefix
+                $selectAsString = $appendSelectAs = false;
             }
 
             $isKnownField = !in_array($field, array('referrer_data'));
@@ -501,9 +525,9 @@ class LogAggregator
      *
      * @return array
      */
-    protected function getGeneralQueryBindParams()
+    public function getGeneralQueryBindParams()
     {
-        $bind = array($this->dateStart->getDateStartUTC(), $this->dateEnd->getDateEndUTC());
+        $bind = array($this->dateStart->toString(Date::DATE_TIME_FORMAT), $this->dateEnd->toString(Date::DATE_TIME_FORMAT));
         $bind = array_merge($bind, $this->sites);
 
         return $bind;
@@ -781,7 +805,7 @@ class LogAggregator
      *                                 clause. These can be aggregate expressions, eg, `SUM(somecol)`.
      * @return \Zend_Db_Statement
      */
-    public function queryConversionsByDimension($dimensions = array(), $where = false, $additionalSelects = array())
+    public function queryConversionsByDimension($dimensions = array(), $where = false, $additionalSelects = array(), $extraFrom = [])
     {
         $dimensions = array_merge(array(self::IDGOAL_FIELD), $dimensions);
         $tableName  = self::LOG_CONVERSION_TABLE;
@@ -789,7 +813,7 @@ class LogAggregator
 
         $select = $this->getSelectStatement($dimensions, $tableName, $additionalSelects, $availableMetrics);
 
-        $from    = array($tableName);
+        $from    = array_merge([$tableName], $extraFrom);
         $where   = $this->getWhereStatement($tableName, self::CONVERSION_DATETIME_FIELD, $where);
         $groupBy = $this->getGroupByStatement($dimensions, $tableName);
         $orderBy = false;

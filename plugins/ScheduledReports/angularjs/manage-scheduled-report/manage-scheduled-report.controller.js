@@ -7,16 +7,20 @@
 (function () {
     angular.module('piwikApp').controller('ManageScheduledReportController', ManageScheduledReportController);
 
-    ManageScheduledReportController.$inject = ['piwik', '$timeout'];
+    ManageScheduledReportController.$inject = ['piwik'];
 
-    function ManageScheduledReportController(piwik, $timeout) {
+    function ManageScheduledReportController(piwik) {
         // remember to keep controller very simple. Create a service/factory (model) if needed
 
         var self = this;
 
+        function getTimeZoneDifferenceInHours() {
+            return piwik.timezoneOffset / 3600;
+        }
+
         this.reportHours = [];
         for (var i = 0; i < 24; i++) {
-            if ((timeZoneDifference*2) % 2 != 0) {
+            if ((getTimeZoneDifferenceInHours()*2) % 2 != 0) {
                 this.reportHours.push({key: i + '.5', value: i + ':30'});
             } else {
                 this.reportHours.push({key: i + '', value: i + ''});
@@ -47,7 +51,7 @@
         }
 
         function updateReportHourUtc (report) {
-            var reportHour = adjustHourToTimezone(report.hour, -timeZoneDifference);
+            var reportHour = adjustHourToTimezone(report.hour, -getTimeZoneDifferenceInHours());
             report.hourUtc = _pk_translate('ScheduledReports_ReportHourWithUTC', [reportHour]);
         }
 
@@ -58,7 +62,10 @@
                 'description': '',
                 'period': ReportPlugin.defaultPeriod,
                 'hour': ReportPlugin.defaultHour,
-                'reports': []
+                'reports': [],
+                'evolutionPeriodFor': 'prev',
+                'evolutionPeriodN': ReportPlugin.defaultEvolutionPeriodN,
+                'periodParam': ReportPlugin.defaultPeriod,
             };
 
             if (idReport > 0) {
@@ -70,15 +77,17 @@
                 resetParameters(report.type, report);
             }
 
-            report.hour = adjustHourToTimezone(report.hour, timeZoneDifference);
+            report.hour = adjustHourToTimezone(report.hour, getTimeZoneDifferenceInHours());
             updateReportHourUtc(report);
 
-            $('[name=reportsList] input').prop('checked', false);
+            setTimeout(function() {
+              $('[name=reportsList] input').prop('checked', false);
 
-            var key;
-            for (key in report.reports) {
-                $('.' + report.type + ' [report-unique-id=' + report.reports[key] + ']').prop('checked', 'checked');
-            }
+              var key;
+              for (key in report.reports) {
+                  $('.' + report.type + ' [report-unique-id=' + report.reports[key] + ']').prop('checked', 'checked');
+              }
+            });
 
             report['format' + report.type] = report.format;
 
@@ -131,9 +140,14 @@
             apiParameters.idSegment = this.report.idsegment;
             apiParameters.reportType = this.report.type;
             apiParameters.reportFormat = this.report['format' + this.report.type];
+            apiParameters.periodParam = this.report.periodParam;
+            apiParameters.evolutionPeriodFor = this.report.evolutionPeriodFor;
+            if (apiParameters.evolutionPeriodFor !== 'each') {
+                apiParameters.evolutionPeriodN = this.report.evolutionPeriodN;
+            }
 
             var period = self.report.period;
-            var hour = adjustHourToTimezone(this.report.hour, timeZoneDifference);
+            var hour = adjustHourToTimezone(this.report.hour, -getTimeZoneDifferenceInHours());
 
             var reports = [];
             $('[name=reportsList].' + apiParameters.reportType + ' input:checked').each(function () {
@@ -163,6 +177,10 @@
 
         this.changedReportType = function () {
             resetParameters(this.report.type, this.report);
+        };
+
+        this.displayReport = function (reportId) {
+            $('#downloadReportForm_' + reportId).submit();
         };
 
         // Email now
@@ -212,6 +230,29 @@
         this.editReport = function (reportId) {
             this.showAddEditForm();
             formSetEditReport(reportId);
+        };
+
+        this.getFrequencyPeriodSingle = function () {
+            if (!this.report || !this.report.period) {
+                return '';
+            }
+
+            var translation = ReportPlugin.periodTranslations[this.report.period];
+            if (!translation) {
+                translation = ReportPlugin.periodTranslations.day;
+            }
+            return translation.single;
+        };
+        this.getFrequencyPeriodPlural = function () {
+            if (!this.report || !this.report.period) {
+                return '';
+            }
+
+            var translation = ReportPlugin.periodTranslations[this.report.period];
+            if (!translation) {
+                translation = ReportPlugin.periodTranslations.day;
+            }
+            return translation.plural;
         };
 
         this.showListOfReports(false);

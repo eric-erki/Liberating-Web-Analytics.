@@ -29,6 +29,7 @@ class Collection
         'Dashboard',
         'UsersManager',
         'SitesManager',
+        'TagManager',
         'ExampleUI',
         'Overlay',
         'Live',
@@ -42,11 +43,14 @@ class Collection
         'Annotations',
         'SegmentEditor',
         'UserCountry.getLocationFromIP',
+        'UserCountry.getCountryCodeMapping',
         'Dashboard',
         'ExamplePluginTemplate',
         'CustomAlerts',
         'Insights',
         'LogViewer',
+        'Referrers.getKeywordNotDefinedString',
+        'CorePluginsAdmin.getSystemSettings',
     );
 
     /**
@@ -250,7 +254,9 @@ class Collection
                 foreach ($formats as $format) {
                     $parametersToSet['format'] = $format;
                     $parametersToSet['hideIdSubDatable'] = 1;
-                    $parametersToSet['serialize'] = 1;
+                    if (!isset($parametersToSet['serialize'])) {
+                        $parametersToSet['serialize'] = 1;
+                    }
 
                     $exampleUrl = $apiMetadata->getExampleUrl($class, $methodName, $parametersToSet);
                     if ($exampleUrl === false) {
@@ -332,9 +338,14 @@ class Collection
 
             $this->apiToCall = $apiToCall;
 
-            if (!in_array('UserCountry.getLocationFromIP', $apiToCall)) {
-                $this->apiNotToCall = array('API.getPiwikVersion',
-                                            'UserCountry.getLocationFromIP');
+            if (!in_array('UserCountry.getLocationFromIP', $apiToCall) &&
+                !in_array('UserCountry.getCountryCodeMapping', $apiToCall)) {
+                $this->apiNotToCall = array(
+                                            'API.getMatomoVersion',
+                                            'API.getPiwikVersion',
+                                            'API.getPhpVersion',
+                                            'UserCountry.getLocationFromIP',
+                                            'UserCountry.getCountryCodeMapping');
             } else {
                 $this->apiNotToCall = array();
             }

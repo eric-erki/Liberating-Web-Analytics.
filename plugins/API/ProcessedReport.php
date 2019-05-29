@@ -14,6 +14,7 @@ use Piwik\Archive\DataTableFactory;
 use Piwik\CacheId;
 use Piwik\Cache as PiwikCache;
 use Piwik\Common;
+use Piwik\Container\StaticContainer;
 use Piwik\DataTable;
 use Piwik\DataTable\Row;
 use Piwik\DataTable\Simple;
@@ -22,6 +23,7 @@ use Piwik\Metrics;
 use Piwik\Metrics\Formatter;
 use Piwik\Period;
 use Piwik\Piwik;
+use Piwik\Plugin\Metric;
 use Piwik\Plugin\ReportsProvider;
 use Piwik\Site;
 use Piwik\Timer;
@@ -48,6 +50,18 @@ class ProcessedReport
     {
         $reportsMetadata = $this->getReportMetadata($idSite, $period, $date, $hideMetricsDoc, $showSubtableReports);
 
+        $entityNames = StaticContainer::get('entities.idNames');
+        foreach ($entityNames as $entityName) {
+            if ($entityName === 'idGoal' || $entityName === 'idDimension') {
+                continue; // idGoal and idDimension is passed directly but for other entities we need to "workaround" and
+                // check for eg idFoo from GET/POST because we cannot add parameters to API dynamically
+            }
+            $idEntity = Common::getRequestVar($entityName, 0, 'int');
+            if ($idEntity > 0) {
+                $apiParameters[$entityName] = $idEntity;
+            }
+        }
+
         foreach ($reportsMetadata as $report) {
             // See ArchiveProcessor/Aggregator.php - unique visitors are not processed for period != day
             // todo: should use SettingsPiwik::isUniqueVisitorsEnabled instead
@@ -73,6 +87,7 @@ class ProcessedReport
                 }
             }
         }
+
         return false;
     }
 
@@ -261,6 +276,8 @@ class ProcessedReport
             $uniqueId = $availableReport['module'] . '_' . $availableReport['action'];
             if (!empty($availableReport['parameters'])) {
                 foreach ($availableReport['parameters'] as $key => $value) {
+                    $value = urlencode($value);
+                    $value = str_replace('%', '', $value);
                     $uniqueId .= '_' . $key . '--' . $value;
                 }
             }
@@ -363,9 +380,14 @@ class ProcessedReport
 
         list($newReport, $columns, $rowsMetadata, $totals) = $this->handleTableReport($idSite, $dataTable, $reportMetadata, $showRawMetrics, $formatMetrics);
 
-        foreach ($columns as &$name) {
-            $name = ucfirst($name);
+        if (function_exists('mb_substr')) {
+            foreach ($columns as &$name) {
+                if (substr($name, 0, 1) === mb_substr($name, 0, 1)) {
+                    $name = ucfirst($name);
+                }
+            }
         }
+
         $website = new Site($idSite);
 
         $period = Period\Factory::build($period, $date);
@@ -408,6 +430,7 @@ class ProcessedReport
         $columns = @$reportMetadata['metrics'] ?: array();
 
         if ($hasDimension) {
+
             $columns = array_merge(
                 array('label' => $reportMetadata['dimension']),
                 $columns
@@ -598,6 +621,8 @@ class ProcessedReport
 
         $formatter = new Formatter();
 
+        $hasNonEmptyRowData = false;
+
         foreach ($simpleDataTable->getRows() as $row) {
             $rowMetrics = $row->getColumns();
 
@@ -649,10 +674,12 @@ class ProcessedReport
                 $rowMetadata = $row->getMetadata();
                 $idSubDataTable = $row->getIdSubDataTable();
 
-                // Create a row metadata only if there are metadata to insert
+                // always add a metadata row - even if empty, so the number of rows and metadata are equal and can be matched directly
+                $metadataRow = new Row();
+                $rowsMetadata->addRow($metadataRow);
+
                 if (count($rowMetadata) > 0 || !is_null($idSubDataTable)) {
-                    $metadataRow = new Row();
-                    $rowsMetadata->addRow($metadataRow);
+                    $hasNonEmptyRowData = true;
 
                     foreach ($rowMetadata as $metadataKey => $metadataValue) {
                         $metadataRow->addColumn($metadataKey, $metadataValue);
@@ -663,6 +690,11 @@ class ProcessedReport
                     }
                 }
             }
+        }
+
+        // reset $rowsMetadata to empty DataTable if no row had metadata
+        if ($hasNonEmptyRowData === false) {
+            $rowsMetadata = new DataTable();
         }
 
         return array(
@@ -682,10 +714,35 @@ class ProcessedReport
 
         $simpleTotals = $this->hideShowMetrics($metadataTotals);
 
+        return $this->calculateTotals($simpleTotals, $totals);
+    }
+
+    private function calculateTotals($simpleTotals, $totals)
+    {
         foreach ($simpleTotals as $metric => $value) {
+            if (0 === strpos($metric, 'avg_') || '_rate' === substr($metric, -5) || '_evolution' === substr($metric, -10)) {
+                continue; // skip average, rate and evolution metrics
+            }
+
+            if (!is_numeric($value) && !is_array($value)) {
+                continue;
+            }
+
+            if (is_array($value)) {
+                $currentValue = array_key_exists($metric, $totals) ? $totals[$metric] : [];
+                $newValue = $this->calculateTotals($value, $currentValue);
+                if (!empty($newValue)) {
+                    $totals[$metric] = $newValue;
+                }
+            }
+
             if (!array_key_exists($metric, $totals)) {
                 $totals[$metric] = $value;
-            } else {
+            } else if(0 === strpos($metric, 'min_')) {
+                $totals[$metric] = min($totals[$metric], $value);
+            } else if(0 === strpos($metric, 'max_')) {
+                $totals[$metric] = max($totals[$metric], $value);
+            } else if($value) {
                 $totals[$metric] += $value;
             }
         }

@@ -9,6 +9,7 @@
 namespace Piwik;
 
 use Exception;
+use Piwik\API\Request;
 use Piwik\ArchiveProcessor\Rules;
 use Piwik\Container\StaticContainer;
 use Piwik\DataAccess\LogQueryBuilder;
@@ -107,11 +108,23 @@ class Segment
         }
     }
 
+    /**
+     * Returns the segment expression.
+     * @return SegmentExpression
+     * @api since Piwik 3.2.0
+     */
+    public function getSegmentExpression()
+    {
+        return $this->segmentExpression;
+    }
+
     private function getAvailableSegments()
     {
         // segment metadata
         if (empty($this->availableSegments)) {
-            $this->availableSegments = API::getInstance()->getSegmentsMetadata($this->idSites, $_hideImplementationData = false);
+            $this->availableSegments = Request::processRequest('API.getSegmentsMetadata', array(
+                'idSites' => $this->idSites, '_hideImplementationData' => 0, 'filter_limit' => -1, 'filter_offset' => 0
+            ), []);
         }
 
         return $this->availableSegments;
@@ -253,7 +266,7 @@ class Segment
             && $matchType != SegmentExpression::MATCH_IS_NULL_OR_EMPTY) {
 
             if (isset($segment['sqlFilterValue'])) {
-                $value = call_user_func($segment['sqlFilterValue'], $value);
+                $value = call_user_func($segment['sqlFilterValue'], $value, $segment['sqlSegment']);
             }
 
             // apply presentation filter
@@ -297,9 +310,13 @@ class Segment
         if (empty($this->string)) {
             return '';
         }
-        // normalize the string as browsers may send slightly different payloads for the same archive
-        $normalizedSegmentString = urldecode($this->string);
-        return md5($normalizedSegmentString);
+        return self::getSegmentHash($this->string);
+    }
+
+    public static function getSegmentHash($definition)
+    {
+        // urldecode to normalize the string, as browsers may send slightly different payloads for the same archive
+        return md5(urldecode($definition));
     }
 
     /**
@@ -307,7 +324,7 @@ class Segment
      *
      * @param string $select The select clause. Should NOT include the **SELECT** just the columns, eg,
      *                       `'t1.col1 as col1, t2.col2 as col2'`.
-     * @param array $from Array of table names (without prefix), eg, `array('log_visit', 'log_conversion')`.
+     * @param array|string $from Array of table names (without prefix), eg, `array('log_visit', 'log_conversion')`.
      * @param false|string $where (optional) Where clause, eg, `'t1.col1 = ? AND t2.col2 = ?'`.
      * @param array|string $bind (optional) Bind parameters, eg, `array($col1Value, $col2Value)`.
      * @param false|string $orderBy (optional) Order by clause, eg, `"t1.col1 ASC"`.
@@ -339,5 +356,56 @@ class Segment
     public function __toString()
     {
         return (string) $this->getString();
+    }
+
+    /**
+     * Combines this segment with another segment condition, if the segment condition is not already
+     * in the segment.
+     *
+     * The combination is naive in that it does not take order of operations into account.
+     *
+     * @param string $segment
+     * @param string $operator The operator to use. Should be either SegmentExpression::AND_DELIMITER
+     *                         or SegmentExpression::OR_DELIMITER.
+     * @param string $segmentCondition The segment condition to add.
+     * @return string
+     * @throws Exception
+     */
+    public static function combine($segment, $operator, $segmentCondition)
+    {
+        if (empty($segment)) {
+            return $segmentCondition;
+        }
+
+        if (empty($segmentCondition)
+            || self::containsCondition($segment, $operator, $segmentCondition)
+        ) {
+            return $segment;
+        }
+
+        return $segment . $operator . $segmentCondition;
+    }
+
+    private static function containsCondition($segment, $operator, $segmentCondition)
+    {
+        // check when segment/condition are of same encoding
+        return strpos($segment, $operator . $segmentCondition) !== false
+            || strpos($segment, $segmentCondition . $operator) !== false
+
+            // check when both operator & condition are urlencoded in $segment
+            || strpos($segment, urlencode($operator . $segmentCondition)) !== false
+            || strpos($segment, urlencode($segmentCondition . $operator)) !== false
+
+            // check when operator is not urlencoded, but condition is in $segment
+            || strpos($segment, $operator . urlencode($segmentCondition)) !== false
+            || strpos($segment, urlencode($segmentCondition) . $operator) !== false
+
+            // check when segment condition is urlencoded & $segment isn't
+            || strpos($segment, $operator . urldecode($segmentCondition)) !== false
+            || strpos($segment, urldecode($segmentCondition) . $operator) !== false
+
+            || $segment === $segmentCondition
+            || $segment === urlencode($segmentCondition)
+            || $segment === urldecode($segmentCondition);
     }
 }

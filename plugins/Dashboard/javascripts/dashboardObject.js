@@ -160,7 +160,6 @@
          */
         addWidget: function (uniqueId, columnNumber, widgetParameters, addWidgetOnTop, isHidden) {
             addWidgetTemplate(uniqueId, columnNumber, widgetParameters, addWidgetOnTop, isHidden);
-            reloadWidget(uniqueId);
             saveLayout();
         },
 
@@ -182,7 +181,7 @@
             );
             ajaxRequest.setLoadingElement();
             ajaxRequest.setFormat('html');
-            ajaxRequest.send(true);
+            ajaxRequest.send();
         },
 
         rebuildMenu: rebuildMenu,
@@ -197,9 +196,11 @@
             var ajaxRequest = new ajaxHelper();
             ajaxRequest.setLoadingElement();
             ajaxRequest.addParams({
-                module: 'Dashboard',
-                action: 'removeDashboard',
-                idDashboard: dashboardId
+                module: 'API',
+                method: 'Dashboard.removeDashboard',
+                idDashboard: dashboardId,
+                login: piwik.userLogin,
+                format: 'json'
             }, 'get');
             ajaxRequest.setCallback(
                 function () {
@@ -209,7 +210,7 @@
             );
             ajaxRequest.withTokenInUrl();
             ajaxRequest.setFormat('html');
-            ajaxRequest.send(true);
+            ajaxRequest.send();
         },
 
         /**
@@ -353,7 +354,7 @@
 
         var $dashboardElement = $(' > .col', dashboardElement);
 
-        if (!$dashboardElement.size()) {
+        if (!$dashboardElement.length) {
             return;
         }
 
@@ -443,10 +444,14 @@
     /**
      * Reloads the widget with the given uniqueId
      *
-     * @param {String} uniqueId
+     * @param {String|jQuery} $widget
      */
-    function reloadWidget(uniqueId) {
-        $('[widgetId="' + uniqueId + '"]', dashboardElement).dashboardWidget('reload', false, true);
+    function reloadWidget($widget) {
+        if (typeof widget === 'string') {
+            $widget = $('[widgetId="' + uniqueId + '"]', dashboardElement);
+        }
+
+        $widget.dashboardWidget('reload', false, true);
     }
 
     /**
@@ -467,15 +472,15 @@
             return;
         }
 
-        var widgetContent = '<div class="sortable" widgetId="' + uniqueId + '"></div>';
+        var $widgetContent = $('<div class="sortable" widgetId="' + uniqueId + '"></div>');
 
         if (addWidgetOnTop) {
-            $('> .col:nth-child(' + columnNumber + ')', dashboardElement).prepend(widgetContent);
+            $('> .col:nth-child(' + columnNumber + ')', dashboardElement).prepend($widgetContent);
         } else {
-            $('> .col:nth-child(' + columnNumber + ')', dashboardElement).append(widgetContent);
+            $('> .col:nth-child(' + columnNumber + ')', dashboardElement).append($widgetContent);
         }
 
-        $('[widgetId="' + uniqueId + '"]', dashboardElement).dashboardWidget({
+        return $widgetContent.dashboardWidget({
             uniqueId: uniqueId,
             widgetParameters: widgetParameters,
             onChange: function () {
@@ -605,7 +610,7 @@
         $(layoutColumnSelector).each(function () {
             columns[columnNumber] = [];
             var items = $('[widgetId]', this);
-            for (var j = 0; j < items.size(); j++) {
+            for (var j = 0; j < items.length; j++) {
                 columns[columnNumber][j] = $(items[j]).dashboardWidget('getWidgetObject');
 
                 // Do not store segment in the dashboard layout
@@ -645,7 +650,7 @@
 
             ajaxRequest.withTokenInUrl();
             ajaxRequest.setFormat('html');
-            ajaxRequest.send(false);
+            ajaxRequest.send();
         }
     }
 

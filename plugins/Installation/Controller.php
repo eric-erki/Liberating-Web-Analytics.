@@ -16,7 +16,6 @@ use Piwik\Config;
 use Piwik\Container\StaticContainer;
 use Piwik\DataAccess\ArchiveTableCreator;
 use Piwik\Db;
-use Piwik\Db\Adapter;
 use Piwik\DbHelper;
 use Piwik\Filesystem;
 use Piwik\Http;
@@ -26,11 +25,10 @@ use Piwik\Plugin\Manager;
 use Piwik\Plugins\Diagnostics\DiagnosticService;
 use Piwik\Plugins\LanguagesManager\LanguagesManager;
 use Piwik\Plugins\SitesManager\API as APISitesManager;
-use Piwik\Plugins\UserCountry\LocationProvider;
 use Piwik\Plugins\UsersManager\API as APIUsersManager;
+use Piwik\Plugins\UsersManager\UserUpdater;
 use Piwik\ProxyHeaders;
 use Piwik\SettingsPiwik;
-use Piwik\Theme;
 use Piwik\Tracker\TrackerCodeGenerator;
 use Piwik\Translation\Translator;
 use Piwik\Updater;
@@ -80,13 +78,15 @@ class Controller extends \Piwik\Plugin\ControllerAdmin
      * Installation Step 1: Welcome
      *
      * Can also display an error message when there is a failure early (eg. DB connection failed)
+     *
+     * @param string $possibleErrorMessage Possible error message which may be set in the frontcontroller when event. Config.badConfigurationFile was triggered
      */
-    function welcome()
+    function welcome($possibleErrorMessage = null)
     {
         // Delete merged js/css files to force regenerations based on updated activated plugin list
         Filesystem::deleteAllCacheOnUpdate();
 
-        $this->checkPiwikIsNotInstalled();
+        $this->checkPiwikIsNotInstalled($possibleErrorMessage);
         $view = new View(
             '@Installation/welcome',
             $this->getInstallationSteps(),
@@ -205,6 +205,7 @@ class Controller extends \Piwik\Plugin\ControllerAdmin
 
             DbHelper::createTables();
             DbHelper::createAnonymousUser();
+            DbHelper::recordInstallVersion();
 
             $this->updateComponents();
 
@@ -374,6 +375,7 @@ class Controller extends \Piwik\Plugin\ControllerAdmin
         $viewTrackingHelp->jsTag = $javascriptGenerator->generate($idSite, Url::getCurrentUrlWithoutFileName());
         $viewTrackingHelp->idSite = $idSite;
         $viewTrackingHelp->piwikUrl = Url::getCurrentUrlWithoutFileName();
+        $viewTrackingHelp->isInstall = true;
 
         $view->trackingHelp = $viewTrackingHelp->render();
         $view->displaySiteName = $siteName;
@@ -400,7 +402,7 @@ class Controller extends \Piwik\Plugin\ControllerAdmin
         $form = new FormDefaultSettings();
 
         /**
-         * Triggered on initialization of the form to customize default Piwik settings (at the end of the installation process).
+         * Triggered on initialization of the form to customize default Matomo settings (at the end of the installation process).
          *
          * @param \Piwik\Plugins\Installation\FormDefaultSettings $form
          */
@@ -411,7 +413,7 @@ class Controller extends \Piwik\Plugin\ControllerAdmin
         if ($form->validate()) {
             try {
                 /**
-                 * Triggered on submission of the form to customize default Piwik settings (at the end of the installation process).
+                 * Triggered on submission of the form to customize default Matomo settings (at the end of the installation process).
                  *
                  * @param \Piwik\Plugins\Installation\FormDefaultSettings $form
                  */
@@ -448,7 +450,7 @@ class Controller extends \Piwik\Plugin\ControllerAdmin
     /**
      * This controller action renders an admin tab that runs the installation
      * system check, so people can see if there are any issues w/ their running
-     * Piwik installation.
+     * Matomo installation.
      *
      * This admin tab is only viewable by the Super User.
      */
@@ -551,9 +553,6 @@ class Controller extends \Piwik\Plugin\ControllerAdmin
         $config = Config::getInstance();
 
         // make sure DB sessions are used if the filesystem is NFS
-        if (Filesystem::checkIfFileSystemIsNFS()) {
-            $config->General['session_save_handler'] = 'dbtable';
-        }
         if (count($headers = ProxyHeaders::getProxyClientHeaders()) > 0) {
             $config->General['proxy_client_headers'] = $headers;
         }
@@ -594,14 +593,17 @@ class Controller extends \Piwik\Plugin\ControllerAdmin
         LanguagesManager::setLanguageForSession($translator->getCurrentLanguage());
     }
 
-    private function checkPiwikIsNotInstalled()
+    private function checkPiwikIsNotInstalled($possibleErrorMessage = null)
     {
         if (!SettingsPiwik::isPiwikInstalled()) {
             return;
         }
+
+        $possibleErrorMessage = $possibleErrorMessage ? sprintf('<br/><br/>Original error was "%s".<br/>', $possibleErrorMessage) : '';
+
         \Piwik\Plugins\Login\Controller::clearSession();
         $message = Piwik::translate('Installation_InvalidStateError',
-            array('<br /><strong>',
+            array($possibleErrorMessage . '<br /><strong>',
                   // piwik-is-already-installed is checked against in checkPiwikServerWorking
                   '</strong><a id="piwik-is-already-installed" href=\'' . Common::sanitizeInputValue(Url::getCurrentUrlWithoutFileName()) . '\'>',
                   '</a>')
@@ -679,11 +681,12 @@ class Controller extends \Piwik\Plugin\ControllerAdmin
 
     private function createSuperUser($login, $password, $email)
     {
-        $self = $this;
-        Access::doAsSuperUser(function () use ($self, $login, $password, $email) {
+        Access::doAsSuperUser(function () use ($login, $password, $email) {
             $api = APIUsersManager::getInstance();
             $api->addUser($login, $password, $email);
-            $api->setSuperUserAccess($login, true);
+
+            $userUpdater = new UserUpdater();
+            $userUpdater->setSuperUserAccessWithoutCurrentPassword($login, true);
         });
     }
 

@@ -10,7 +10,6 @@
 namespace Piwik\Plugins\Insights\Visualizations;
 
 use Piwik\Common;
-use Piwik\DataTable;
 use Piwik\Plugin\ViewDataTable;
 use Piwik\Plugin\Visualization;
 use Piwik\Plugins\Insights\API;
@@ -53,6 +52,8 @@ class Insight extends Visualization
             'comparedToXPeriods' => $this->requestConfig->compared_to_x_periods_ago,
             'orderBy'  => $this->requestConfig->order_by,
             'filterBy' => $this->requestConfig->filter_by,
+            'pivotBy' => false,
+            'pivotByColumn' => false,
             'limitIncreaser' => $this->getLimitIncrease(),
             'limitDecreaser' => $this->getLimitDecrease(),
         );
@@ -62,6 +63,10 @@ class Insight extends Visualization
     {
         $filterLimit   = $this->requestConfig->filter_limit;
         $limitIncrease = 0;
+
+        if ($filterLimit == -1) {
+            return -1;
+        }
 
         if ($this->requestConfig->limit_increaser && !$this->requestConfig->limit_decreaser) {
             $limitIncrease = $filterLimit;
@@ -75,6 +80,11 @@ class Insight extends Visualization
     private function getLimitDecrease()
     {
         $filterLimit   = $this->requestConfig->filter_limit;
+
+        if ($filterLimit == -1) {
+            return -1;
+        }
+
         $limitDecrease = $filterLimit - $this->getLimitIncrease();
 
         return abs($limitDecrease);
@@ -94,6 +104,7 @@ class Insight extends Visualization
     {
         $this->config->datatable_js_type = 'InsightsDataTable';
         $this->config->show_limit_control = true;
+        $this->config->show_pivot_by_subtable = false;
         $this->config->show_pagination_control = false;
         $this->config->show_offset_information = false;
         $this->config->show_search = false;

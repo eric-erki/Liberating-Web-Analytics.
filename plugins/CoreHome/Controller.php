@@ -11,7 +11,6 @@ namespace Piwik\Plugins\CoreHome;
 use Exception;
 use Piwik\API\Request;
 use Piwik\Common;
-use Piwik\Container\StaticContainer;
 use Piwik\Date;
 use Piwik\FrontController;
 use Piwik\Notification\Manager as NotificationManager;
@@ -132,8 +131,7 @@ class Controller extends \Piwik\Plugin\Controller
             $module = Piwik::getLoginPluginName();
         }
 
-        $idSite = Common::getRequestVar('idSite', false, 'int');
-        parent::redirectToIndex($module, $action, $idSite);
+        parent::redirectToIndex($module, $action, $this->idSite);
     }
 
     public function showInContext()
@@ -178,19 +176,15 @@ class Controller extends \Piwik\Plugin\Controller
             return;
         }
 
-        $websiteId = Common::getRequestVar('idSite', false, 'int');
-
-        if ($websiteId) {
-
-            $website = new Site($websiteId);
-            $datetimeCreationDate      = $website->getCreationDate()->getDatetime();
-            $creationDateLocalTimezone = Date::factory($datetimeCreationDate, $website->getTimezone())->toString('Y-m-d');
-            $todayLocalTimezone        = Date::factory('now', $website->getTimezone())->toString('Y-m-d');
+        if ($this->site) {
+            $datetimeCreationDate      = $this->site->getCreationDate()->getDatetime();
+            $creationDateLocalTimezone = Date::factory($datetimeCreationDate, $this->site->getTimezone())->toString('Y-m-d');
+            $todayLocalTimezone        = Date::factory('now', $this->site->getTimezone())->toString('Y-m-d');
 
             if ($creationDateLocalTimezone == $todayLocalTimezone) {
                 Piwik::redirectToModule('CoreHome', 'index',
                     array('date'   => 'today',
-                          'idSite' => $websiteId,
+                          'idSite' => $this->idSite,
                           'period' => Common::getRequestVar('period'))
                 );
             }
@@ -264,9 +258,6 @@ class Controller extends \Piwik\Plugin\Controller
         // perform check (but only once every 10s)
         UpdateCheck::check($force = false, UpdateCheck::UI_CLICK_CHECK_INTERVAL);
 
-        $marketplace = StaticContainer::get('Piwik\Plugins\Marketplace\Api\Client');
-        $marketplace->clearAllCacheEntries();
-
         $view = new View('@CoreHome/checkForUpdates');
         $this->setGeneralVariablesView($view);
         return $view->render();
@@ -286,8 +277,21 @@ class Controller extends \Piwik\Plugin\Controller
                 unset($parameters[$name]);
             }
         }
+        $paypalParameters = [
+            "cmd" => "_s-xclick"
+        ];
+        if (empty($parameters["onetime"]) || $parameters["onetime"] != "true") {
+            $paypalParameters["hosted_button_id"] = "DVKLY73RS7JTE";
+            $paypalParameters["currency_code"] = "USD";
+            $paypalParameters["on0"] = "Piwik Supporter";
+            if (!empty($parameters["os0"])) {
+                $paypalParameters["os0"] = $parameters["os0"];
+            }
+        } else {
+            $paypalParameters["hosted_button_id"] = "RPL23NJURMTFA";
+        }
 
-        $url = "https://www.paypal.com/cgi-bin/webscr?" . Url::getQueryStringFromParameters($parameters);
+        $url = "https://www.paypal.com/cgi-bin/webscr?" . Url::getQueryStringFromParameters($paypalParameters);
 
         Url::redirectToUrl($url);
         exit;
@@ -301,7 +305,8 @@ class Controller extends \Piwik\Plugin\Controller
         $reportId   = Common::getRequestVar('report_id', null, 'string');
         $parameters = (array) Common::getRequestVar('parameters', null, 'json');
         $login      = Piwik::getCurrentUserLogin();
+        $containerId = Common::getRequestVar('containerId', '', 'string');
 
-        ViewDataTableManager::saveViewDataTableParameters($login, $reportId, $parameters);
+        ViewDataTableManager::saveViewDataTableParameters($login, $reportId, $parameters, $containerId);
     }
 }

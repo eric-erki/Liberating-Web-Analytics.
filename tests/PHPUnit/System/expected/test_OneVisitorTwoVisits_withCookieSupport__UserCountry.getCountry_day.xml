@@ -7,7 +7,7 @@
 		<nb_actions>9</nb_actions>
 		<nb_users>0</nb_users>
 		<max_actions>8</max_actions>
-		<sum_visit_length>1621</sum_visit_length>
+		<sum_visit_length>1622</sum_visit_length>
 		<bounce_count>1</bounce_count>
 		<goals>
 			<row idgoal='1'>
@@ -24,9 +24,8 @@
 		<nb_conversions>2</nb_conversions>
 		<revenue>43</revenue>
 		<code>fr</code>
-		<logo>plugins/UserCountry/images/flags/fr.png</logo>
+		<logo>plugins/Morpheus/icons/dist/flags/fr.png</logo>
 		<segment>countryCode==fr</segment>
-		<logoWidth>16</logoWidth>
-		<logoHeight>11</logoHeight>
+		<logoHeight>16</logoHeight>
 	</row>
 </result>

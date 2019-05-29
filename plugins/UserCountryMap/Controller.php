@@ -15,6 +15,7 @@ use Piwik\Config;
 use Piwik\Container\StaticContainer;
 use Piwik\Piwik;
 use Piwik\Plugins\Goals\API as APIGoals;
+use Piwik\Plugins\VisitsSummary\API as VisitsSummaryAPI;
 use Piwik\Site;
 use Piwik\Translation\Translator;
 use Piwik\View;
@@ -26,8 +27,8 @@ require_once PIWIK_INCLUDE_PATH . '/plugins/UserCountry/functions.php';
  */
 class Controller extends \Piwik\Plugin\Controller
 {
-    // By default plot up to the last 30 days of visitors on the map, for low traffic sites
-    const REAL_TIME_WINDOW = 'last30';
+    // By default plot up to the last 3 days of visitors on the map, for low traffic sites
+    const REAL_TIME_WINDOW = 'last3';
     
     /**
      * @var Translator
@@ -45,8 +46,8 @@ class Controller extends \Piwik\Plugin\Controller
     {
         $this->checkUserCountryPluginEnabled();
 
-        $idSite = Common::getRequestVar('idSite', 1, 'int');
-        Piwik::checkUserHasViewAccess($idSite);
+        $this->checkSitePermission();
+        Piwik::checkUserHasViewAccess($this->idSite);
 
         $period = Common::getRequestVar('period');
         $date = Common::getRequestVar('date');
@@ -66,8 +67,8 @@ class Controller extends \Piwik\Plugin\Controller
 
         // request visits summary
         $request = new Request(
-            'method=VisitsSummary.get&format=PHP'
-            . '&idSite=' . $idSite
+            'method=VisitsSummary.get&format=php'
+            . '&idSite=' . $this->idSite
             . '&period=' . $period
             . '&date=' . $date
             . '&segment=' . $segment
@@ -75,35 +76,46 @@ class Controller extends \Piwik\Plugin\Controller
             . '&filter_limit=-1'
         );
         $config = array();
-        $config['visitsSummary'] = unserialize($request->process());
+        $config['visitsSummary'] = Common::safe_unserialize($request->process());
         $config['countryDataUrl'] = $this->_report('UserCountry', 'getCountry',
-            $idSite, $period, $date, $token_auth, false, $segment);
+            $this->idSite, $period, $date, $token_auth, false, $segment);
         $config['regionDataUrl'] = $this->_report('UserCountry', 'getRegion',
-            $idSite, $period, $date, $token_auth, true, $segment);
+            $this->idSite, $period, $date, $token_auth, true, $segment);
         $config['cityDataUrl'] = $this->_report('UserCountry', 'getCity',
-            $idSite, $period, $date, $token_auth, true, $segment);
+            $this->idSite, $period, $date, $token_auth, true, $segment);
         $config['countrySummaryUrl'] = $this->getApiRequestUrl('VisitsSummary', 'get',
-            $idSite, $period, $date, $token_auth, true, $segment);
-        $view->defaultMetric = 'nb_visits';
+            $this->idSite, $period, $date, $token_auth, true, $segment);
+        $view->defaultMetric = array_key_exists('nb_uniq_visitors', $config['visitsSummary']) ? 'nb_uniq_visitors' : 'nb_visits';
 
-        // some translations
-        $view->localeJSON = json_encode(array(
+        $noVisitTranslation = $this->translator->translate('UserCountryMap_NoVisit');
+        // some translations containing metric number
+        $translations = array(
              'nb_visits'            => $this->translator->translate('General_NVisits'),
-             'one_visit'            => $this->translator->translate('General_OneVisit'),
-             'no_visit'             => $this->translator->translate('UserCountryMap_NoVisit'),
+             'no_visit'             => $noVisitTranslation,
              'nb_actions'           => $this->translator->translate('VisitsSummary_NbActionsDescription'),
              'nb_actions_per_visit' => $this->translator->translate('VisitsSummary_NbActionsPerVisit'),
              'bounce_rate'          => $this->translator->translate('VisitsSummary_NbVisitsBounced'),
              'avg_time_on_site'     => $this->translator->translate('VisitsSummary_AverageVisitDuration'),
              'and_n_others'         => $this->translator->translate('UserCountryMap_AndNOthers'),
-             'no_data'              => $this->translator->translate('CoreHome_ThereIsNoDataForThisReport'),
-             'nb_uniq_visitors'     => $this->translator->translate('VisitsSummary_NbUniqueVisitors'),
+             'nb_uniq_visitors'     => $this->translator->translate('General_NUniqueVisitors'),
              'nb_users'             => $this->translator->translate('VisitsSummary_NbUsers'),
-        ));
+        );
+
+        foreach ($translations as &$translation) {
+            if (false === strpos($translation, '%s')
+                && $translation !== $noVisitTranslation) {
+                $translation = '%s ' . $translation;
+            }
+        }
+
+        $translations['one_visit'] = $this->translator->translate('General_OneVisit');
+        $translations['no_data'] = $this->translator->translate('CoreHome_ThereIsNoDataForThisReport');
+
+        $view->localeJSON = json_encode($translations);
 
         $view->reqParamsJSON = $this->getEnrichedRequest($params = array(
             'period'                      => $period,
-            'idSite'                      => $idSite,
+            'idSite'                      => $this->idSite,
             'date'                        => $date,
             'segment'                     => $segment,
             'token_auth'                  => $token_auth,
@@ -111,7 +123,7 @@ class Controller extends \Piwik\Plugin\Controller
             'filter_excludelowpop_value'  => -1
         ));
 
-        $view->metrics = $config['metrics'] = $this->getMetrics($idSite, $period, $date, $token_auth);
+        $view->metrics = $config['metrics'] = $this->getMetrics($this->idSite, $period, $date, $token_auth);
         $config['svgBasePath'] = 'plugins/UserCountryMap/svg/';
         $config['mapCssPath'] = 'plugins/UserCountryMap/stylesheets/map.css';
         $view->config = json_encode($config);
@@ -158,20 +170,20 @@ class Controller extends \Piwik\Plugin\Controller
     {
         $this->checkUserCountryPluginEnabled();
 
-        $idSite = Common::getRequestVar('idSite', 1, 'int');
-        Piwik::checkUserHasViewAccess($idSite);
+        $this->checkSitePermission();
+        Piwik::checkUserHasViewAccess($this->idSite);
 
         $token_auth = Piwik::getCurrentUserTokenAuth();
         $view = new View('@UserCountryMap/realtimeMap');
 
         $view->mapIsStandaloneNotWidget = !(bool) Common::getRequestVar('widget', $standalone, 'int');
 
-        $view->metrics = $this->getMetrics($idSite, 'range', self::REAL_TIME_WINDOW, $token_auth);
+        $view->metrics = $this->getMetrics($this->idSite, 'range', self::REAL_TIME_WINDOW, $token_auth);
         $view->defaultMetric = 'nb_visits';
         $liveRefreshAfterMs = (int)Config::getInstance()->General['live_widget_refresh_after_seconds'] * 1000;
 
-        $goals = APIGoals::getInstance()->getGoals($idSite);
-        $site = new Site($idSite);
+        $goals = Request::processRequest('Goals.getGoals', ['idSite' => $this->idSite, 'filter_limit' => '-1'], $default = []);
+        $site = new Site($this->idSite);
         $hasGoals = !empty($goals) || $site->isEcommerceEnabled();
 
         // maximum number of visits to be displayed in the map
@@ -189,7 +201,7 @@ class Controller extends \Piwik\Plugin\Controller
             'hours'            => $this->translator->translate('Intl_Hours'),
             'hours_ago'        => $this->translator->translate('UserCountryMap_HoursAgo'),
             'days_ago'         => $this->translator->translate('UserCountryMap_DaysAgo'),
-            'actions'          => $this->translator->translate('VisitsSummary_NbPageviewsDescription'),
+            'actions'          => $this->translator->translate('Transitions_NumPageviews'),
             'searches'         => $this->translator->translate('UserCountryMap_Searches'),
             'goal_conversions' => $this->translator->translate('UserCountryMap_GoalConversions'),
         );
@@ -197,7 +209,7 @@ class Controller extends \Piwik\Plugin\Controller
         $segment = $segmentOverride ? : Request::getRawSegmentFromRequest() ? : '';
         $params = array(
             'period'     => 'range',
-            'idSite'     => $idSite,
+            'idSite'     => $this->idSite,
             'segment'    => $segment,
             'token_auth' => $token_auth,
         );
@@ -269,7 +281,7 @@ class Controller extends \Piwik\Plugin\Controller
             . '&token_auth=' . $token_auth
             . '&filter_limit=-1'
         );
-        $metaData = unserialize($request->process());
+        $metaData = Common::safe_unserialize($request->process());
 
         $metrics = array();
         if (!empty($metaData[0]['metrics']) && is_array($metaData[0]['metrics'])) {

@@ -44,6 +44,8 @@ if (!defined('PIWIK_USER_PATH')) {
  * - **show_autocompleter**: Whether the site selector should be shown or not.
  * - **loginModule**: The name of the currently used authentication module.
  * - **userAlias**: The alias of the current user.
+ * - **isInternetEnabled**: Whether the matomo server is allowed to connect to
+ *                          external networks.
  *
  * ### Template Naming Convention
  *
@@ -212,10 +214,19 @@ class View implements ViewInterface
         return isset($this->templateVars[$name]);
     }
 
+    /**
+     * Unsets a template variable.
+     *
+     * @param string $name The name of the template variable.
+     */
+    public function __unset($name)
+    {
+        unset($this->templateVars[$name]);
+    }
+
     private function initializeTwig()
     {
-        $piwikTwig = new Twig();
-        $this->twig = $piwikTwig->getTwigEnvironment();
+        $this->twig = StaticContainer::get(Twig::class)->getTwigEnvironment();
     }
 
     /**
@@ -236,9 +247,12 @@ class View implements ViewInterface
             $this->userIsAnonymous = Piwik::isUserIsAnonymous();
             $this->userIsSuperUser = Piwik::hasUserSuperUserAccess();
             $this->latest_version_available = UpdateCheck::isNewestVersionAvailable();
+            $this->showUpdateNotificationToUser = !SettingsPiwik::isShowUpdateNotificationToSuperUsersOnlyEnabled() || Piwik::hasUserSuperUserAccess();
             $this->disableLink = Common::getRequestVar('disableLink', 0, 'int');
             $this->isWidget = Common::getRequestVar('widget', 0, 'int');
             $this->isMultiServerEnvironment = SettingsPiwik::isMultiServerEnvironment();
+            $this->isInternetEnabled = SettingsPiwik::isInternetEnabled();
+            $this->shouldPropagateTokenAuth = $this->shouldPropagateTokenAuthInAjaxRequests();
 
             $piwikAds = StaticContainer::get('Piwik\ProfessionalServices\Advertising');
             $this->areAdsForProfessionalServicesEnabled = $piwikAds->areAdsForProfessionalServicesEnabled();
@@ -265,7 +279,9 @@ class View implements ViewInterface
         Common::sendHeader('Content-Type: ' . $this->contentType);
         // always sending this header, sometimes empty, to ensure that Dashboard embed loads
         // - when calling sendHeader() multiple times, the last one prevails
-        Common::sendHeader('X-Frame-Options: ' . (string)$this->xFrameOptions);
+        if(!empty($this->xFrameOptions)) {
+            Common::sendHeader('X-Frame-Options: ' . (string)$this->xFrameOptions);
+        }
 
         return $this->renderTwigTemplate();
     }
@@ -303,18 +319,24 @@ class View implements ViewInterface
 
     protected function applyFilter_cacheBuster($output)
     {
-        $assetManager = AssetManager::getInstance();
+        $cacheBuster = UIAssetCacheBuster::getInstance();
+        $cache = Cache::getTransientCache();
 
-        $stylesheet = $assetManager->getMergedStylesheetAsset();
-        if ($stylesheet->exists()) {
-            $content = $stylesheet->getContent();
-        } else {
-            $content = $assetManager->getMergedStylesheet()->getContent();
+        $cssCacheBusterId = $cache->fetch('cssCacheBusterId');
+        if (empty($cssCacheBusterId)) {
+            $assetManager = AssetManager::getInstance();
+            $stylesheet = $assetManager->getMergedStylesheetAsset();
+            if ($stylesheet->exists()) {
+                $content = $stylesheet->getContent();
+            } else {
+                $content = $assetManager->getMergedStylesheet()->getContent();
+            }
+            $cssCacheBusterId = $cacheBuster->md5BasedCacheBuster($content);
+            $cache->save('cssCacheBusterId', $cssCacheBusterId);
         }
 
-        $cacheBuster = UIAssetCacheBuster::getInstance();
-        $tagJs       = 'cb=' . $cacheBuster->piwikVersionBasedCacheBuster();
-        $tagCss      = 'cb=' . $cacheBuster->md5BasedCacheBuster($content);
+        $tagJs  = 'cb=' . $cacheBuster->piwikVersionBasedCacheBuster();
+        $tagCss = 'cb=' . $cssCacheBusterId;
 
         $pattern = array(
             '~<script type=[\'"]text/javascript[\'"] src=[\'"]([^\'"]+)[\'"]>~',
@@ -356,6 +378,7 @@ class View implements ViewInterface
      */
     public function setXFrameOptions($option = 'deny')
     {
+
         if ($option === 'deny' || $option === 'sameorigin') {
             $this->xFrameOptions = $option;
         }
@@ -401,7 +424,7 @@ class View implements ViewInterface
      */
     public static function clearCompiledTemplates()
     {
-        $twig = new Twig();
+        $twig = StaticContainer::get(Twig::class);
         $environment = $twig->getTwigEnvironment();
         $environment->clearTemplateCache();
 
@@ -429,5 +452,11 @@ class View implements ViewInterface
         $view->title = $title;
         $view->report = $reportHtml;
         return $view->render();
+    }
+
+    private function shouldPropagateTokenAuthInAjaxRequests()
+    {
+        $generalConfig = Config::getInstance()->General;
+        return Common::getRequestVar('module', false) == 'Widgetize' || $generalConfig['enable_framed_pages'] == '1';
     }
 }

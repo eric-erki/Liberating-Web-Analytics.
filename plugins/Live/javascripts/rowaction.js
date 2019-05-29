@@ -21,7 +21,7 @@
     function getDataTableFromApiMethod(apiMethod)
     {
         var div = $(require('piwik/UI').DataTable.getDataTableByReport(apiMethod));
-        if (div.size() > 0 && div.data('uiControlObject')) {
+        if (div.length && div.data('uiControlObject')) {
             return div.data('uiControlObject');
         }
     }
@@ -67,6 +67,14 @@
     DataTable_RowActions_SegmentVisitorLog.prototype.trigger = function (tr, e, subTableLabel) {
         var segment = getRawSegmentValueFromRow(tr);
 
+        if (this.dataTable.param.segment) {
+            segment = decodeURIComponent(this.dataTable.param.segment) + ';' + segment;
+        }
+
+        if (this.dataTable.props.segmented_visitor_log_segment_suffix) {
+            segment = segment + ';' + this.dataTable.props.segmented_visitor_log_segment_suffix;
+        }
+
         this.performAction(segment, tr, e);
     };
 
@@ -78,6 +86,13 @@
         if (this.dataTable.param.date && this.dataTable.param.period) {
             extraParams = {date: this.dataTable.param.date, period: this.dataTable.param.period};
         }
+
+        $.each(this.dataTable.param, function (index, value) {
+            // we automatically add fields like idDimension, idGoal etc.
+            if (index !== 'idSite' && index.indexOf('id') === 0 && $.isNumeric(value)) {
+                extraParams[index] = value;
+            }
+        });
 
         this.openPopover(apiMethod, segment, extraParams);
     };
@@ -104,8 +119,7 @@
 
         name: actionName,
 
-        dataTableIcon: 'plugins/Live/images/visitorlog.png',
-        dataTableIconHover: 'plugins/Live/images/visitorlog-hover.png',
+        dataTableIcon: 'icon-segmented-visits-log',
 
         order: 30,
 

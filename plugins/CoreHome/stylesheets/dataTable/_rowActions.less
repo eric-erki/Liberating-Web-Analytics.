@@ -16,10 +16,14 @@ table.dataTable .dataTableRowActions a {
 
   .rowActionIcon {
     font-size: 19px;
-    color: @color-gray;
+    color: @theme-color-brand !important;
+    opacity: 0.6;
     &:hover {
-      color: @theme-color-text;
+      opacity: 1;
     }
+  }
+  @media print{
+    display: none;
   }
 }
 
@@ -36,5 +40,7 @@ table.dataTable .dataTableRowActions a img {
   padding: 0;
   border: 0;
   width: 20px;
+  max-width: 20px;
   height: 17px;
+  max-height: 17px;
 }

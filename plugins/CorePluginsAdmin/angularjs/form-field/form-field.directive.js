@@ -16,6 +16,30 @@
 
     function piwikFormField(piwik, $timeout){
 
+        function initMaterialSelect($select, placeholder) {
+            $select.material_select();
+
+            // to prevent overlapping selects, when a select is opened, we set the z-index to a high value on focus & remove z-index for all others
+            // NOTE: we can't remove it directly blur since the blur causes the select to overlap, aborting the select click. (a timeout is used
+            // to make sure the z-index is removed however, in case a non-select dropdown is displayed over it)
+            $select.closest('.select-wrapper').find('input.select-dropdown')
+                .focus(function () {
+                    $('.select-wrapper').css('z-index', '');
+                    $(this).closest('.select-wrapper').css('z-index', 999);
+                }).blur(function () {
+                    var self = this;
+                    setTimeout(function () {
+                        $(self).closest('.select-wrapper').css('z-index', '');
+                    }, 250);
+                });
+
+            // add placeholder to input
+            if (placeholder) {
+                var $materialInput = $select.closest('.select-wrapper').find('input');
+                $materialInput.attr('placeholder', placeholder);
+            }
+        }
+
         function syncMultiCheckboxKeysWithFieldValue(field)
         {
             angular.forEach(field.availableOptions, function (option, index) {
@@ -73,12 +97,12 @@
 
                 if (isSelectControl(field)) {
                     var $select = element.find('select');
-                    $select.material_select();
+                    initMaterialSelect($select, field.uiControlAttributes.placeholder);
 
                     scope.$watch('formField.value', function (val, oldVal) {
                         if (val !== oldVal) {
                             $timeout(function () {
-                                $select.material_select();
+                                initMaterialSelect($select, field.uiControlAttributes.placeholder);
                             });
                         }
                     });
@@ -86,7 +110,7 @@
                     scope.$watch('formField.uiControlAttributes.disabled', function (val, oldVal) {
                         if (val !== oldVal) {
                             $timeout(function () {
-                                $select.material_select();
+                                initMaterialSelect($select, field.uiControlAttributes.placeholder);
                             });
                         }
                     });
@@ -132,6 +156,7 @@
                         || hasUiControl(field, 'textarea')
                         || hasUiControl(field, 'password')
                         || hasUiControl(field, 'email')
+                        || hasUiControl(field, 'number')
                         || hasUiControl(field, 'url')
                         || hasUiControl(field, 'search')) {
                     Materialize.updateTextFields();
@@ -148,7 +173,7 @@
 
         function getTemplate(field) {
             var control = field.uiControl;
-            if (control === 'password') {
+            if (control === 'password' || control === 'url' || control === 'search' || control === 'email') {
                 control = 'text'; // we use same template for text and password both
             }
 
@@ -214,6 +239,39 @@
                         return flatValues;
                     }
 
+                    if (hasUiControl(field, 'expandable-select')) {
+                        var availableValues = field.availableValues;
+                        var flatValues = [];
+
+                        var groups = {};
+                        angular.forEach(availableValues, function (value) {
+
+                            if (!value.group) {
+                                value.group = '';
+                            }
+
+                            if (!(value.group in groups) || !groups[value.group]) {
+                                groups[value.group] = {values: [], group: value.group}
+                            }
+
+                            var formatted = {key: value.key, value: value.value};
+
+                            if ('tooltip' in value && value.tooltip) {
+                                formatted.tooltip = value.tooltip;
+                            }
+
+                            groups[value.group].values.push(formatted);
+                        });
+
+                        angular.forEach(groups, function (group) {
+                            if (group.values.length) {
+                                flatValues.push(group);
+                            }
+                        });
+
+                        return flatValues;
+                    }
+
                     if (isSelectControl(field)) {
                         var availableValues = field.availableValues;
 
@@ -244,24 +302,79 @@
                     return field.availableValues;
                 }
 
-                return function (scope, element, attrs) {
-                    var field = scope.piwikFormField;
+                function formatPrettyDefaultValue(defaultValue, availableOptions) {
+                    if (angular.isString(defaultValue) && defaultValue) {
+                        // eg default value for multi tuple
+                        var defaultParsed = null;
+                        try {
+                            defaultParsed = JSON.parse(defaultValue);
+                        } catch (e) {
+                            // invalid JSON
+                        }
 
-                    if (angular.isArray(field.defaultValue)) {
-                        field.defaultValue = field.defaultValue.join(',');
+                        if (angular.isObject(defaultParsed)) {
+                            return null;
+                        }
+                    }
+                    
+                    if (!angular.isArray(availableOptions)) {
+                        if (angular.isArray(defaultValue)) {
+                            return null;
+                        }
+                        
+                        return defaultValue;
                     }
 
+                    var prettyValues = [];
+
+                    if (!angular.isArray(defaultValue)) {
+                        defaultValue = [defaultValue];
+                    }
+
+                    angular.forEach(availableOptions, function (value, key) {
+                        if (defaultValue.indexOf(value.key) !== -1 && typeof value.value !== 'undefined') {
+                            prettyValues.push(value.value);
+                        }
+                    });
+
+                    return prettyValues.join(', ');
+                }
+
+                return function (scope, element, attrs) {
+                    var field = scope.piwikFormField;
+                    var defaultValue = field.defaultValue;
+
+
+                    if (angular.isArray(field.defaultValue)) {
+                        field.defaultValue = defaultValue.join(',');
+                    }
+
+                    // convert boolean values since angular 1.6 uses strict equals when determining if a model value
+                    // matches the ng-value of an input.
                     if (field.type === 'boolean') {
-                        if (field.value && field.value > 0 && field.value !== '0') {
-                            field.value = true;
-                        } else {
-                            field.value = false;
+                        var valueIsTruthy = field.value && field.value > 0 && field.value !== '0';
+
+                        // for checkboxes, the value MUST be either true or faluse
+                        if (field.uiControl === 'checkbox') {
+                            field.value = valueIsTruthy;
+                        } else if (field.uiControl === 'radio') {
+                            field.value = valueIsTruthy ? '1' : '0';
                         }
                     }
 
                     // we are setting availableOptions and not availableValues again. Otherwise when watching the scope
                     // availableValues and in the watch change availableValues could trigger lots of more watch events
                     field.availableOptions = formatAvailableValues(field);
+
+                    // for selects w/ a placeholder, add an option to unset the select
+                    if (field.uiControl === 'select'
+                        && field.uiControlAttributes.placeholder
+                        && !hasOption('')
+                    ) {
+                        field.availableOptions.splice(0, 0, { key: '', value: '' });
+                    }
+
+                    field.defaultValuePretty = formatPrettyDefaultValue(defaultValue, field.availableOptions);
 
                     field.showField = true;
 
@@ -314,7 +427,7 @@
 
                             if (isSelectControl(scope.formField)) {
                                 $timeout(function () {
-                                    element.find('select').material_select();
+                                    initMaterialSelect(element.find('select'), field.uiControlAttributes.placeholder);
                                 });
                             }
                         }
@@ -323,6 +436,14 @@
                         $timeout(whenRendered(scope, element, inlineHelpNode));
                     };
 
+                    function hasOption(key) {
+                        for (var i = 0; i !== field.availableOptions.length; ++i) {
+                            if (field.availableOptions[i].key === key) {
+                                return true;
+                            }
+                        }
+                        return false;
+                    }
                 };
             }
         };

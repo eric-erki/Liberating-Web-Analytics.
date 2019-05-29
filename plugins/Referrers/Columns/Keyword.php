@@ -9,8 +9,6 @@
 namespace Piwik\Plugins\Referrers\Columns;
 
 use Piwik\Common;
-use Piwik\Piwik;
-use Piwik\Plugins\Referrers\Segment;
 use Piwik\Tracker\Request;
 use Piwik\Tracker\Visitor;
 use Piwik\Tracker\Action;
@@ -19,20 +17,12 @@ class Keyword extends Base
 {
     protected $columnName = 'referer_keyword';
     protected $columnType = 'VARCHAR(255) NULL';
-
-    protected function configureSegments()
-    {
-        $segment = new Segment();
-        $segment->setSegment('referrerKeyword');
-        $segment->setName('General_ColumnKeyword');
-        $segment->setAcceptedValues('Encoded%20Keyword, keyword');
-        $this->addSegment($segment);
-    }
-
-    public function getName()
-    {
-        return Piwik::translate('General_ColumnKeyword');
-    }
+    protected $nameSingular = 'General_ColumnKeyword';
+    protected $namePlural = 'Referrers_Keywords';
+    protected $segmentName = 'referrerKeyword';
+    protected $acceptValues = 'Encoded%20Keyword, keyword';
+    protected $type = self::TYPE_TEXT;
+    protected $category = 'Referrers_Referrers';
 
     /**
      * @param Request $request
@@ -43,12 +33,19 @@ class Keyword extends Base
     public function onNewVisit(Request $request, Visitor $visitor, $action)
     {
         $information = $this->getReferrerInformationFromRequest($request, $visitor);
+        return $information['referer_keyword'];
+    }
 
-        if (!empty($information['referer_keyword'])) {
-            return Common::mb_substr($information['referer_keyword'], 0, 255);
+    public function onExistingVisit(Request $request, Visitor $visitor, $action)
+    {
+        $information = $this->getReferrerInformationFromRequest($request, $visitor);
+        if ($this->isCurrentReferrerDirectEntry($visitor)
+            && $information['referer_type'] != Common::REFERRER_TYPE_DIRECT_ENTRY
+        ) {
+            return $information['referer_keyword'];
         }
 
-        return $information['referer_keyword'];
+        return false;
     }
 
     /**

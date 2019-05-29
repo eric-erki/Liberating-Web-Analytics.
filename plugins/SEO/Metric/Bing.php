@@ -10,7 +10,6 @@ namespace Piwik\Plugins\SEO\Metric;
 
 use Piwik\Http;
 use Piwik\NumberFormatter;
-use Piwik\Plugins\Referrers\SearchEngine;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -18,7 +17,7 @@ use Psr\Log\LoggerInterface;
  */
 class Bing implements MetricsProvider
 {
-    const URL = 'http://www.bing.com/search?setlang=en-US&rdr=1&q=site%3A';
+    const URL = 'https://www.bing.com/search?setlang=en-US&rdr=1&q=site%3A';
 
     /**
      * @var LoggerInterface
@@ -36,6 +35,7 @@ class Bing implements MetricsProvider
 
         try {
             $response = str_replace('&nbsp;', ' ', Http::sendHttpRequest($url, $timeout = 10, @$_SERVER['HTTP_USER_AGENT']));
+            $response = str_replace('&#160;', '', $response); // number uses nbsp as thousand seperator
 
             if (preg_match('#([0-9,\.]+) results#i', $response, $p)) {
                 $pageCount = NumberFormatter::getInstance()->formatNumber((int)str_replace(array(',', '.'), '', $p[1]));
@@ -47,7 +47,7 @@ class Bing implements MetricsProvider
             $pageCount = null;
         }
 
-        $logo = SearchEngine::getInstance()->getLogoFromUrl('http://bing.com');
+        $logo = "plugins/Morpheus/icons/dist/SEO/bing.com.png";
 
         return array(
             new Metric('bing-index', 'SEO_Bing_IndexedPages', $pageCount, $logo, null, null, 'General_Pages')

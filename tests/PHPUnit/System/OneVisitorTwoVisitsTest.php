@@ -33,14 +33,6 @@ class OneVisitorTwoVisitsTest extends SystemTestCase
      */
     public static $fixture = null; // initialized below class
 
-    /**
-     * @return string
-     */
-    public static function getValueForHideColumns()
-    {
-        return 'nb_users,sum_bandwidth,nb_hits_with_bandwidth,min_bandwidth,max_bandwidth';
-    }
-
     public function setUp()
     {
         Proxy::getInstance()->setHideIgnoredFunctions(false);
@@ -90,8 +82,25 @@ class OneVisitorTwoVisitsTest extends SystemTestCase
             array('all', array('idSite' => $idSite,
                                'date' => $dateTime,
                                'otherRequestParameters' => array(
-                                   'hideColumns' => self::getValueForHideColumns(),
+                                   'hideColumns' => OneVisitorTwoVisits::getValueForHideColumns(),
                                )
+            )),
+
+            array('all', array('idSite' => $idSite,
+                'date' => $dateTime,
+                'format' => 'original',
+                'otherRequestParameters' => array(
+                    'serialize' => '1',
+                ),
+                'onlyCheckUnserialize' => true,
+            )),
+            array('Live.getMostRecentVisitorId', array('idSite' => $idSite,
+                'date' => $dateTime,
+                'format' => 'original',
+                'otherRequestParameters' => array(
+                    'serialize' => '1',
+                ),
+                'onlyCheckUnserialize' => true,
             )),
 
             // test API.get (for bug that incorrectly reorders columns of CSV output)
@@ -217,6 +226,18 @@ class OneVisitorTwoVisitsTest extends SystemTestCase
         {
             // pass
         }
+    }
+
+    public function provideContainerConfig()
+    {
+        return array(
+            'Piwik\Config' => \DI\decorate(function ($previous) {
+                $general = $previous->General;
+                $general['action_title_category_delimiter'] = "/";
+                $previous->General = $general;
+                return $previous;
+            }),
+        );
     }
 }
 

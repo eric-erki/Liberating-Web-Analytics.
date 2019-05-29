@@ -10,7 +10,6 @@ namespace Piwik\Plugins\SEO\Metric;
 
 use Piwik\Http;
 use Piwik\NumberFormatter;
-use Piwik\Plugins\Referrers\SearchEngine;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -18,7 +17,7 @@ use Psr\Log\LoggerInterface;
  */
 class Google implements MetricsProvider
 {
-    const SEARCH_URL = 'http://www.google.com/search?hl=en&q=site%3A';
+    const SEARCH_URL = 'https://www.google.com/search?hl=en&q=site%3A';
 
     /**
      * @var LoggerInterface
@@ -37,7 +36,7 @@ class Google implements MetricsProvider
     {
         $pageCount = $this->fetchIndexedPagesCount($domain);
 
-        $logo = SearchEngine::getInstance()->getLogoFromUrl('http://google.com');
+        $logo = "plugins/Morpheus/icons/dist/SEO/google.com.png";
 
         return array(
             new Metric('google-index', 'SEO_Google_IndexedPages', $pageCount, $logo, null, null, 'General_Pages'),

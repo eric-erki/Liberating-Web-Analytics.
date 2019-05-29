@@ -11,6 +11,7 @@ namespace Piwik\Plugin;
 
 use Piwik\ArchiveProcessor;
 use Piwik\Config as PiwikConfig;
+use Piwik\ErrorHandler;
 
 /**
  * The base class that should be extended by plugins that compute their own
@@ -78,6 +79,34 @@ abstract class Archiver
     }
 
     /**
+     * @ignore
+     */
+    final public function callAggregateDayReport()
+    {
+        try {
+            ErrorHandler::pushFatalErrorBreadcrumb(static::class);
+
+            $this->aggregateDayReport();
+        } finally {
+            ErrorHandler::popFatalErrorBreadcrumb();
+        }
+    }
+
+    /**
+     * @ignore
+     */
+    final public function callAggregateMultipleReports()
+    {
+        try {
+            ErrorHandler::pushFatalErrorBreadcrumb(static::class);
+
+            $this->aggregateMultipleReports();
+        } finally {
+            ErrorHandler::popFatalErrorBreadcrumb();
+        }
+    }
+
+    /**
      * Archives data for a day period.
      *
      * Implementations of this method should do more computation intensive activities such
@@ -140,5 +169,17 @@ abstract class Archiver
     public function isEnabled()
     {
         return $this->enabled;
+    }
+
+    /**
+     * By overwriting this method and returning true, a plugin archiver can force the archiving to run even when there
+     * was no visit for the website/date/period/segment combination
+     * (by default, archivers are skipped when there is no visit).
+     *
+     * @return bool
+     */
+    public static function shouldRunEvenWhenNoVisits()
+    {
+        return false;
     }
 }

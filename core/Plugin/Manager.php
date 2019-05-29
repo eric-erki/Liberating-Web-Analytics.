@@ -12,11 +12,13 @@ namespace Piwik\Plugin;
 use Piwik\Application\Kernel\PluginList;
 use Piwik\Cache;
 use Piwik\Columns\Dimension;
+use Piwik\Common;
 use Piwik\Config;
 use Piwik\Config as PiwikConfig;
 use Piwik\Container\StaticContainer;
-use Piwik\Db;
+use Piwik\Development;
 use Piwik\EventDispatcher;
+use Piwik\Exception\Exception;
 use Piwik\Exception\PluginDeactivatedException;
 use Piwik\Filesystem;
 use Piwik\Log;
@@ -26,10 +28,10 @@ use Piwik\Plugin;
 use Piwik\Plugin\Dimension\ActionDimension;
 use Piwik\Plugin\Dimension\ConversionDimension;
 use Piwik\Plugin\Dimension\VisitDimension;
-use Piwik\Session;
 use Piwik\Settings\Storage as SettingsStorage;
+use Piwik\SettingsPiwik;
+use Piwik\SettingsServer;
 use Piwik\Theme;
-use Piwik\Tracker;
 use Piwik\Translation\Translator;
 use Piwik\Updater;
 
@@ -52,6 +54,8 @@ class Manager
 
     protected $doLoadPlugins = true;
 
+    protected static $pluginsToPathCache = array();
+
     private $pluginsLoadedAndActivated;
 
     /**
@@ -68,7 +72,6 @@ class Manager
     // These are always activated and cannot be deactivated
     protected $pluginToAlwaysActivate = array(
         'CoreHome',
-        'Diagnostics',
         'CoreUpdater',
         'CoreAdminHome',
         'CoreConsole',
@@ -105,6 +108,12 @@ class Manager
     public function loadActivatedPlugins()
     {
         $pluginsToLoad = $this->getActivatedPluginsFromConfig();
+        if (!SettingsPiwik::isInternetEnabled()) {
+            $pluginsToLoad = array_filter($pluginsToLoad, function($name) {
+                $plugin = Manager::makePluginClass($name);
+                return !$plugin->requiresInternetConnection();
+            });
+        }
         $this->loadPlugins($pluginsToLoad);
     }
 
@@ -206,7 +215,7 @@ class Manager
      */
     private function updatePluginsConfig($pluginsToLoad)
     {
-        $pluginsToLoad = $this->pluginList->sortPlugins($pluginsToLoad);
+        $pluginsToLoad = $this->pluginList->sortPluginsAndRespectDependencies($pluginsToLoad);
         $section = PiwikConfig::getInstance()->Plugins;
         $section['Plugins'] = $pluginsToLoad;
         PiwikConfig::getInstance()->Plugins = $section;
@@ -266,6 +275,19 @@ class Manager
     }
 
     /**
+     * Returns `true` if a plugin requires an working internet connection
+     *
+     * @param string $name Name of plugin, eg, `'Actions'`.
+     * @return bool
+     * @throws \Exception
+     */
+    public function doesPluginRequireInternetConnection($name)
+    {
+        $plugin = $this->makePluginClass($name);
+        return $plugin->requiresInternetConnection();
+    }
+
+    /**
      * Checks whether the given plugin is activated, if not triggers an exception.
      *
      * @param  string $pluginName
@@ -297,21 +319,164 @@ class Manager
      */
     public function readPluginsDirectory()
     {
-        $pluginsName = _glob(self::getPluginsDirectory() . '*', GLOB_ONLYDIR);
         $result = array();
-        if ($pluginsName != false) {
-            foreach ($pluginsName as $path) {
-                if (self::pluginStructureLooksValid($path)) {
-                    $result[] = basename($path);
+        foreach (self::getPluginsDirectories() as $pluginsDir) {
+            $pluginsName = _glob($pluginsDir . '*', GLOB_ONLYDIR);
+            if ($pluginsName != false) {
+                foreach ($pluginsName as $path) {
+                    if (self::pluginStructureLooksValid($path)) {
+                        $result[] = basename($path);
+                    }
                 }
             }
         }
+
+        sort($result);
+
         return $result;
     }
 
+    public static function initPluginDirectories()
+    {
+        $envDirs = getenv('MATOMO_PLUGIN_DIRS');
+        if (!empty($envDirs)) {
+            // we expect it in the format `absoluteStorageDir1;webrootPathRelative1:absoluteStorageDir2;webrootPathRelative1`
+            if (empty($GLOBALS['MATOMO_PLUGIN_DIRS'])) {
+                $GLOBALS['MATOMO_PLUGIN_DIRS'] = array();
+            }
+
+            $envDirs = explode(':', $envDirs);
+            foreach ($envDirs as $envDir) {
+                $envDir = explode(';', $envDir);
+                $absoluteDir = rtrim($envDir[0], '/') . '/';
+                $GLOBALS['MATOMO_PLUGIN_DIRS'][] = array(
+                    'pluginsPathAbsolute' => $absoluteDir,
+                    'webrootDirRelativeToMatomo' => isset($envDir[1]) ? $envDir[1] : null,
+                );
+            }
+        }
+
+        if (!empty($GLOBALS['MATOMO_PLUGIN_DIRS'])) {
+            foreach ($GLOBALS['MATOMO_PLUGIN_DIRS'] as $pluginDir => &$settings) {
+                if (!isset($settings['pluginsPathAbsolute'])) {
+                    throw new \Exception('Missing "pluginsPathAbsolute" configuration for plugin dir');
+                }
+                if (!isset($settings['webrootDirRelativeToMatomo'])) {
+                    throw new \Exception('Missing "webrootDirRelativeToMatomo" configuration for plugin dir');
+                }
+            }
+
+            $pluginDirs = self::getPluginsDirectories();
+            if (count($pluginDirs) > 1) {
+                spl_autoload_register(function ($className) use ($pluginDirs) {
+                    if (strpos($className, 'Piwik\Plugins\\') === 0) {
+                        $withoutPrefix = str_replace('Piwik\Plugins\\', '', $className);
+                        $path = str_replace('\\', DIRECTORY_SEPARATOR, $withoutPrefix) . '.php';
+                        foreach ($pluginDirs as $pluginsDirectory) {
+                            if (file_exists($pluginsDirectory . $path)) {
+                                require_once $pluginsDirectory . $path;
+                            }
+                        }
+                    }
+                });
+            }
+        }
+    }
+
+    public static function getAlternativeWebRootDirectories()
+    {
+        $dirs = array();
+
+        if (!empty($GLOBALS['MATOMO_PLUGIN_DIRS'])) {
+            foreach ($GLOBALS['MATOMO_PLUGIN_DIRS'] as $pluginDir) {
+                $absolute = rtrim($pluginDir['pluginsPathAbsolute'], '/') . '/';
+                $relative = rtrim($pluginDir['webrootDirRelativeToMatomo'], '/') . '/';
+                $dirs[$absolute] = $relative;
+            }
+        }
+
+        return $dirs;
+    }
+
+    /**
+     * Returns the path to all plugins directories. Each plugins directory may contain several plugins.
+     * All paths have a trailing slash '/'.
+     * @return string[]
+     * @api
+     */
+    public static function getPluginsDirectories()
+    {
+        $dirs = array(self::getPluginsDirectory());
+
+        if (!empty($GLOBALS['MATOMO_PLUGIN_DIRS'])) {
+            $extraDirs = array_map(function ($dir) {
+                return rtrim($dir['pluginsPathAbsolute'], '/') . '/';
+            }, $GLOBALS['MATOMO_PLUGIN_DIRS']);
+            $dirs = array_merge($dirs, $extraDirs);
+        }
+
+        return $dirs;
+    }
+
+    private static function getPluginRealPath($path)
+    {
+        if (strpos($path, '../') !== false) {
+            // for tests, only do it when needed re performance etc
+            $real = realpath($path);
+            if ($real && Common::stringEndsWith($path, '/')) {
+                return rtrim($real, '/') . '/';
+            }
+            if ($real) {
+                return $real;
+            }
+        }
+        return $path;
+    }
+
+    /**
+     * Gets the path to a specific plugin. If the plugin does not exist in any plugins folder, the default plugins
+     * folder will be assumed.
+     *
+     * @param $pluginName
+     * @return mixed|string
+     * @api
+     */
+    public static function getPluginDirectory($pluginName)
+    {
+        if (isset(self::$pluginsToPathCache[$pluginName])) {
+            return self::$pluginsToPathCache[$pluginName];
+        }
+
+        $corePluginsDir = PIWIK_INCLUDE_PATH . '/plugins/' . $pluginName;
+        if (is_dir($corePluginsDir)) {
+            // for faster performance
+            self::$pluginsToPathCache[$pluginName] = self::getPluginRealPath($corePluginsDir);
+            return self::$pluginsToPathCache[$pluginName];
+        }
+
+        foreach (self::getPluginsDirectories() as $dir) {
+            $path = $dir . $pluginName;
+            if (is_dir($path)) {
+                self::$pluginsToPathCache[$pluginName] = self::getPluginRealPath($path);
+                return $path;
+            }
+        }
+
+        // assume default directory when plugin does not exist just yet
+        return self::getPluginsDirectory() . $pluginName;
+    }
+
+    /**
+     * Returns the path to the directory where core plugins are located. Please note since Matomo 3.9
+     * plugins may also be located in other directories and therefore this method has been deprecated.
+     * @deprecated since Matomo 3.9.0 use {@link (getPluginsDirectories())} or {@link getPluginDirectory($pluginName)} instead
+     * @return string
+     */
     public static function getPluginsDirectory()
     {
-        return PIWIK_INCLUDE_PATH . '/plugins/';
+        $path = rtrim(PIWIK_INCLUDE_PATH, '/') . '/plugins/';
+        $path = self::getPluginRealPath($path);
+        return $path;
     }
 
     /**
@@ -396,7 +561,7 @@ class Manager
     public function uninstallPlugin($pluginName)
     {
         if ($this->isPluginLoaded($pluginName)) {
-            throw new \Exception("To uninstall the plugin $pluginName, first disable it in Piwik > Settings > Plugins");
+            throw new \Exception("To uninstall the plugin $pluginName, first disable it in Matomo > Settings > Plugins");
         }
         $this->loadAllPluginsAndGetTheirInfo();
 
@@ -440,7 +605,11 @@ class Manager
 
     public static function deletePluginFromFilesystem($plugin)
     {
-        Filesystem::unlinkRecursive(PIWIK_INCLUDE_PATH . '/plugins/' . $plugin, $deleteRootToo = true);
+        $pluginDir = self::getPluginDirectory($plugin);
+        if (strpos($pluginDir, PIWIK_INCLUDE_PATH) === 0) {
+            // only delete files for plugins within matomo directory...
+            Filesystem::unlinkRecursive($pluginDir, $deleteRootToo = true);
+        }
     }
 
     /**
@@ -502,7 +671,7 @@ class Manager
         Piwik::postEvent('PluginManager.pluginActivated', array($pluginName));
     }
 
-    protected function isPluginInFilesystem($pluginName)
+    public function isPluginInFilesystem($pluginName)
     {
         $existingPlugins = $this->readPluginsDirectory();
         $isPluginInFilesystem = array_search($pluginName, $existingPlugins) !== false;
@@ -554,13 +723,14 @@ class Manager
         throw new \Exception('Theme not found : ' . $themeName);
     }
 
-    public function getNumberOfActivatedPlugins()
+    public function getNumberOfActivatedPluginsExcludingAlwaysActivated()
     {
         $counter = 0;
 
         $pluginNames = $this->getLoadedPluginsName();
         foreach ($pluginNames as $pluginName) {
-            if ($this->isPluginActivated($pluginName)) {
+            if ($this->isPluginActivated($pluginName)
+                && !$this->isPluginAlwaysActivated($pluginName)) {
                 $counter++;
             }
         }
@@ -596,6 +766,7 @@ class Manager
             $this->pluginList->getActivatedPlugins()
         );
         $listPlugins = array_unique($listPlugins);
+        $internetFeaturesEnabled = SettingsPiwik::isInternetEnabled();
         foreach ($listPlugins as $pluginName) {
             // Hide plugins that are never going to be used
             if ($this->isPluginBogus($pluginName)) {
@@ -611,7 +782,7 @@ class Manager
                     'uninstallable'   => true,
                 );
             } else {
-                $translator->addDirectory(self::getPluginsDirectory() . $pluginName . '/lang');
+                $translator->addDirectory(self::getPluginDirectory($pluginName) . '/lang');
                 $this->loadPlugin($pluginName);
                 $info = array(
                     'activated'       => $this->isPluginActivated($pluginName),
@@ -672,7 +843,8 @@ class Manager
             return true;
         }
 
-        $path = $this->getPluginsDirectory() . $pluginName;
+        $path = self::getPluginDirectory($pluginName);
+      
         if (!$this->isManifestFileFound($path)) {
             return true;
         }
@@ -837,37 +1009,96 @@ class Manager
     {
         $pluginsToPostPendingEventsTo = array();
         foreach ($this->pluginsToLoad as $pluginName) {
-            if (!$this->isPluginLoaded($pluginName)
-                && !$this->isPluginThirdPartyAndBogus($pluginName)
-            ) {
-                $newPlugin = $this->loadPlugin($pluginName);
-                if ($newPlugin === null) {
-                    continue;
-                }
-
-                if ($newPlugin->hasMissingDependencies()) {
-                    $this->deactivatePlugin($pluginName);
-
-                    // at this state we do not know yet whether current user has super user access. We do not even know
-                    // if someone is actually logged in.
-                    $message  = Piwik::translate('CorePluginsAdmin_WeDeactivatedThePluginAsItHasMissingDependencies', array($pluginName, $newPlugin->getMissingDependenciesAsString()));
-                    $message .= ' ';
-                    $message .= Piwik::translate('General_PleaseContactYourPiwikAdministrator');
-
-                    $notification = new Notification($message);
-                    $notification->context = Notification::CONTEXT_ERROR;
-                    Notification\Manager::notify('PluginManager_PluginDeactivated', $notification);
-                    continue;
-                }
-
-                $pluginsToPostPendingEventsTo[] = $newPlugin;
-            }
+            $pluginsToPostPendingEventsTo = $this->reloadActivatedPlugin($pluginName, $pluginsToPostPendingEventsTo);
         }
 
         // post pending events after all plugins are successfully loaded
         foreach ($pluginsToPostPendingEventsTo as $plugin) {
             EventDispatcher::getInstance()->postPendingEventsTo($plugin);
         }
+    }
+
+    private function reloadActivatedPlugin($pluginName, $pluginsToPostPendingEventsTo)
+    {
+        if ($this->isPluginLoaded($pluginName) || $this->isPluginThirdPartyAndBogus($pluginName)) {
+            return $pluginsToPostPendingEventsTo;
+        }
+
+        $newPlugin = $this->loadPlugin($pluginName);
+
+        if ($newPlugin === null) {
+            return $pluginsToPostPendingEventsTo;
+        }
+
+        $requirements = $newPlugin->getMissingDependencies();
+
+        if (!empty($requirements)) {
+            foreach ($requirements as $requirement) {
+                $possiblePluginName = $requirement['requirement'];
+                if (in_array($possiblePluginName, $this->pluginsToLoad, $strict = true)) {
+                    $pluginsToPostPendingEventsTo = $this->reloadActivatedPlugin($possiblePluginName, $pluginsToPostPendingEventsTo);
+                }
+            }
+        }
+
+        if ($newPlugin->hasMissingDependencies()) {
+            $this->unloadPluginFromMemory($pluginName);
+
+            // at this state we do not know yet whether current user has super user access. We do not even know
+            // if someone is actually logged in.
+            $message  = Piwik::translate('CorePluginsAdmin_WeCouldNotLoadThePluginAsItHasMissingDependencies', array($pluginName, $newPlugin->getMissingDependenciesAsString()));
+            $message .= ' ';
+            $message .= Piwik::translate('General_PleaseContactYourPiwikAdministrator');
+
+            $notification = new Notification($message);
+            $notification->context = Notification::CONTEXT_ERROR;
+            Notification\Manager::notify('PluginManager_PluginUnloaded', $notification);
+            return $pluginsToPostPendingEventsTo;
+        }
+
+        if ($newPlugin->isPremiumFeature()
+            && SettingsPiwik::isInternetEnabled()
+            && !Development::isEnabled()
+            && $this->isPluginActivated('Marketplace')
+            && $this->isPluginActivated($pluginName)) {
+
+            $cacheKey = 'MarketplacePluginMissingLicense' . $pluginName;
+            $cache = self::getLicenseCache();
+
+            if ($cache->contains($cacheKey)) {
+                $pluginLicenseInfo = $cache->fetch($cacheKey);
+            } elseif (!SettingsServer::isTrackerApiRequest()) {
+                // prevent requesting license info during a tracker request see https://github.com/matomo-org/matomo/issues/14401
+                // as possibly many instances would try to do this at the same time
+                try {
+                    $plugins = StaticContainer::get('Piwik\Plugins\Marketplace\Plugins');
+                    $licenseInfo = $plugins->getLicenseValidInfo($pluginName);
+                } catch (\Exception $e) {
+                    $licenseInfo = array();
+                }
+
+                $pluginLicenseInfo = array('missing' => !empty($licenseInfo['isMissingLicense']));
+                $sixHours = 3600 * 6;
+                $cache->save($cacheKey, $pluginLicenseInfo, $sixHours);
+            } else {
+                // tracker mode, we assume it is not missing until cache is written
+                $pluginLicenseInfo = array('missing' => false); 
+            }
+
+            if (!empty($pluginLicenseInfo['missing']) && (!defined('PIWIK_TEST_MODE') || !PIWIK_TEST_MODE)) {
+                $this->unloadPluginFromMemory($pluginName);
+                return $pluginsToPostPendingEventsTo;
+            }
+        }
+
+        $pluginsToPostPendingEventsTo[] = $newPlugin;
+
+        return $pluginsToPostPendingEventsTo;
+    }
+
+    public static function getLicenseCache()
+    {
+        return Cache::getLazyCache();
     }
 
     public function getIgnoredBogusPlugins()
@@ -930,14 +1161,14 @@ class Manager
      */
     protected function makePluginClass($pluginName)
     {
-        $pluginFileName = sprintf("%s/%s.php", $pluginName, $pluginName);
         $pluginClassName = $pluginName;
 
         if (!$this->isValidPluginName($pluginName)) {
-            throw new \Exception(sprintf("The plugin filename '%s' is not a valid plugin name", $pluginFileName));
+            throw new \Exception(sprintf("The plugin name '%s' is not a valid plugin name", $pluginName));
         }
 
-        $path = self::getPluginsDirectory() . $pluginFileName;
+        $path = self::getPluginDirectory($pluginName);
+        $path = sprintf('%s/%s.php', $path, $pluginName);
 
         if (!file_exists($path)) {
             // Create the smallest minimal Piwik Plugin
@@ -1062,11 +1293,11 @@ class Manager
         $missingPlugins = array();
 
         $plugins = $this->pluginList->getActivatedPlugins();
+
         foreach ($plugins as $pluginName) {
             // if a plugin is listed in the config, but is not loaded, it does not exist in the folder
-            if (!self::getInstance()->isPluginLoaded($pluginName)
-                && !$this->isPluginBogus($pluginName)
-            ) {
+            if (!$this->isPluginLoaded($pluginName) && !$this->isPluginBogus($pluginName) &&
+                !($this->doesPluginRequireInternetConnection($pluginName) && !SettingsPiwik::isInternetEnabled())) {
                 $missingPlugins[] = $pluginName;
             }
         }
@@ -1394,7 +1625,7 @@ class Manager
         /** @var Translator $translator */
         $translator = StaticContainer::get('Piwik\Translation\Translator');
         foreach ($this->getAllPluginsNames() as $pluginName) {
-            $translator->addDirectory(self::getPluginsDirectory() . $pluginName . '/lang');
+            $translator->addDirectory(self::getPluginDirectory($pluginName) . '/lang');
         }
     }
 }

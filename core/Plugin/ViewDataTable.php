@@ -13,8 +13,6 @@ use Piwik\Common;
 use Piwik\DataTable;
 use Piwik\Period;
 use Piwik\Piwik;
-use Piwik\Plugin\ReportsProvider;
-use Piwik\View;
 use Piwik\View\ViewInterface;
 use Piwik\ViewDataTable\Config as VizConfig;
 use Piwik\ViewDataTable\Manager as ViewDataTableManager;
@@ -211,6 +209,10 @@ abstract class ViewDataTable implements ViewInterface
             $relatedReports = $report->getRelatedReports();
             if (!empty($relatedReports)) {
                 foreach ($relatedReports as $relatedReport) {
+                    if (!$relatedReport) {
+                        continue;
+                    }
+                    
                     $relatedReportName = $relatedReport->getName();
 
                     $this->config->addRelatedReport($relatedReport->getModule() . '.' . $relatedReport->getAction(),
@@ -236,6 +238,9 @@ abstract class ViewDataTable implements ViewInterface
         /**
          * Triggered during {@link ViewDataTable} construction. Subscribers should customize
          * the view based on the report that is being displayed.
+         *
+         * This event is triggered before view configuration properties are overwritten by saved settings or request
+         * parameters. Use this to define default values.
          *
          * Plugins that define their own reports must subscribe to this event in order to
          * specify how the Piwik UI should display the report.
@@ -273,6 +278,31 @@ abstract class ViewDataTable implements ViewInterface
 
         $this->overrideViewPropertiesWithParams($overrideParams);
         $this->overrideViewPropertiesWithQueryParams();
+
+        /**
+         * Triggered after {@link ViewDataTable} construction. Subscribers should customize
+         * the view based on the report that is being displayed.
+         *
+         * This event is triggered after all view configuration values have been overwritten by saved settings or
+         * request parameters. Use this if you need to work with the final configuration values.
+         *
+         * Plugins that define their own reports can subscribe to this event in order to
+         * specify how the Piwik UI should display the report.
+         *
+         * **Example**
+         *
+         *     // event handler
+         *     public function configureViewDataTableEnd(ViewDataTable $view)
+         *     {
+         *         if ($view->requestConfig->apiMethodToRequestDataTable == 'VisitTime.getVisitInformationPerServerTime'
+         *             && $view->requestConfig->flat == 1) {
+         *                 $view->config->show_header_message = 'You are viewing this report flattened';
+         *         }
+         *     }
+         *
+         * @param ViewDataTable $view The instance to configure.
+         */
+        Piwik::postEvent('ViewDataTable.configure.end', array($this));
     }
 
     private function assignRelatedReportsTitle()
@@ -455,7 +485,12 @@ abstract class ViewDataTable implements ViewInterface
     protected function getPropertyFromQueryParam($name, $defaultValue)
     {
         $type = is_numeric($defaultValue) ? 'int' : null;
-        return Common::getRequestVar($name, $defaultValue, $type);
+        $value = Common::getRequestVar($name, $defaultValue, $type);
+        // convert comma separated values to arrays if needed
+        if (is_array($defaultValue)) {
+            $value = Piwik::getArrayFromApiParameter($value);
+        }
+        return $value;
     }
 
     /**
@@ -525,7 +560,7 @@ abstract class ViewDataTable implements ViewInterface
         $nonOverridableParams = $this->getNonOverridableParams($overrideParams);
         if(count($nonOverridableParams) > 0) {
             throw new \Exception(sprintf(
-                "Setting parameters %s is not allowed. Please report this bug to the Piwik team.",
+                "Setting parameters %s is not allowed. Please report this bug to the Matomo team.",
                 implode(" and ", $nonOverridableParams)
             ));
         }

@@ -11,8 +11,8 @@ namespace Piwik\Plugins\CorePluginsAdmin;
 use Exception;
 use Piwik\API\Request;
 use Piwik\Common;
-use Piwik\Config;
 use Piwik\Container\StaticContainer;
+use Piwik\ErrorHandler;
 use Piwik\Exception\MissingFilePermissionException;
 use Piwik\Filechecks;
 use Piwik\Filesystem;
@@ -20,9 +20,12 @@ use Piwik\Nonce;
 use Piwik\Notification;
 use Piwik\Piwik;
 use Piwik\Plugin;
+use Piwik\Plugins\CorePluginsAdmin\Model\TagManagerTeaser;
+use Piwik\Plugins\Login\PasswordVerifier;
 use Piwik\Plugins\Marketplace\Marketplace;
 use Piwik\Plugins\Marketplace\Controller as MarketplaceController;
 use Piwik\Plugins\Marketplace\Plugins;
+use Piwik\Settings\Storage\Backend\PluginSettingsTable;
 use Piwik\SettingsPiwik;
 use Piwik\Translation\Translator;
 use Piwik\Url;
@@ -60,18 +63,29 @@ class Controller extends Plugin\ControllerAdmin
     private $marketplacePlugins;
 
     /**
+     * @var PasswordVerifier
+     */
+    private $passwordVerify;
+
+    /**
      * Controller constructor.
      * @param Translator $translator
      * @param Plugin\SettingsProvider $settingsProvider
      * @param PluginInstaller $pluginInstaller
      * @param Plugins $marketplacePlugins
+     * @param PasswordVerifier $passwordVerify
      */
-    public function __construct(Translator $translator, Plugin\SettingsProvider $settingsProvider, PluginInstaller $pluginInstaller, $marketplacePlugins = null)
-    {
+    public function __construct(Translator $translator, 
+                                Plugin\SettingsProvider $settingsProvider, 
+                                PluginInstaller $pluginInstaller,
+                                PasswordVerifier $passwordVerify,
+                                $marketplacePlugins = null
+    ) {
         $this->translator = $translator;
         $this->settingsProvider = $settingsProvider;
         $this->pluginInstaller = $pluginInstaller;
         $this->pluginManager = Plugin\Manager::getInstance();
+        $this->passwordVerify = $passwordVerify;
 
         if (!empty($marketplacePlugins)) {
             $this->marketplacePlugins = $marketplacePlugins;
@@ -88,6 +102,10 @@ class Controller extends Plugin\ControllerAdmin
         static::dieIfPluginsAdminIsDisabled();
         Piwik::checkUserHasSuperUserAccess();
 
+        if (!CorePluginsAdmin::isPluginUploadEnabled()) {
+            throw new \Exception('Plugin upload disabled by config');
+        }
+
         $nonce = Common::getRequestVar('nonce', null, 'string');
 
         if (!Nonce::verifyNonce(MarketplaceController::INSTALL_NONCE, $nonce)) {
@@ -95,6 +113,13 @@ class Controller extends Plugin\ControllerAdmin
         }
 
         Nonce::discardNonce(MarketplaceController::INSTALL_NONCE);
+
+        if (!$this->passwordVerify->isPasswordCorrect(
+            Piwik::getCurrentUserLogin(),
+            Common::getRequestVar('confirmPassword', null, 'string')
+        )) {
+            throw new \Exception($this->translator->translate('Login_LoginPasswordNotCorrect'));
+        }
 
         if (empty($_FILES['pluginZip'])) {
             throw new \Exception('You did not specify a ZIP file.');
@@ -140,8 +165,53 @@ class Controller extends Plugin\ControllerAdmin
         $this->redirectToIndex('Marketplace', 'overview', null, null, null, array('show' => 'themes'));
     }
 
+    public function tagManagerTeaser()
+    {
+        $this->dieIfPluginsAdminIsDisabled();
+        Piwik::checkUserHasSomeAdminAccess();
+
+        $tagManagerTeaser = new TagManagerTeaser(Piwik::getCurrentUserLogin());
+
+        if (!$tagManagerTeaser->shouldShowTeaser()) {
+            $this->redirectToIndex('CoreHome', 'index');
+            return;
+        }
+
+        $nonce = '';
+        if (Piwik::hasUserSuperUserAccess()) {
+            $nonce = Nonce::getNonce(static::ACTIVATE_NONCE);
+        }
+
+        $superUsers = Request::processRequest('UsersManager.getUsersHavingSuperUserAccess', [], []);
+        $emails = implode(',', array_column($superUsers, 'email'));
+
+        $view = new View('@CorePluginsAdmin/tagManagerTeaser');
+        $this->setGeneralVariablesView($view);
+        $view->superUserEmails = $emails;
+        $view->nonce = $nonce;
+        return $view->render();
+    }
+
+    public function disableActivateTagManagerPage()
+    {
+        $this->dieIfPluginsAdminIsDisabled();
+        Piwik::checkUserHasSomeAdminAccess();
+
+        $tagManagerTeaser = new TagManagerTeaser(Piwik::getCurrentUserLogin());
+
+        if (Piwik::hasUserSuperUserAccess()) {
+            $tagManagerTeaser->disableGlobally();
+        } else {
+            $tagManagerTeaser->disableForUser();
+        }
+
+        $date = Common::getRequestVar('date', false);
+        $this->redirectToIndex('CoreHome', 'index', $websiteId = null, $defaultPeriod = null, $date);
+    }
+
     private function dieIfPluginsAdminIsDisabled()
     {
+        Piwik::checkUserIsNotAnonymous();
         if (!CorePluginsAdmin::isPluginsAdminEnabled()) {
             throw new \Exception('Enabling, disabling and uninstalling plugins has been disabled by Piwik admins.
             Please contact your Piwik admins with your request so they can assist you.');
@@ -160,7 +230,7 @@ class Controller extends Plugin\ControllerAdmin
         $view->deactivateNonce = Nonce::getNonce(static::DEACTIVATE_NONCE);
         $view->pluginsInfo = $this->getPluginsInfo($themesOnly);
 
-        $users = Request::processRequest('UsersManager.getUsers');
+        $users = Request::processRequest('UsersManager.getUsers', array('filter_limit' => '-1'));
         $view->otherUsersCount = count($users) - 1;
         $view->themeEnabled = $this->pluginManager->getThemeEnabled()->getPluginName();
 
@@ -179,6 +249,9 @@ class Controller extends Plugin\ControllerAdmin
                 // curl exec connection error (ie. server not connected to internet)
             }
         }
+
+        $view->isPluginUploadEnabled = CorePluginsAdmin::isPluginUploadEnabled();
+        $view->installNonce = Nonce::getNonce(MarketplaceController::INSTALL_NONCE);
 
         return $view;
     }
@@ -219,6 +292,16 @@ class Controller extends Plugin\ControllerAdmin
         foreach ($plugins as $pluginName => &$plugin) {
 
             $plugin['isCorePlugin'] = $this->pluginManager->isPluginBundledWithCore($pluginName);
+            $plugin['isOfficialPlugin'] = false;
+
+            if (isset($plugin['info']) && isset($plugin['info']['authors'])) {
+                foreach ($plugin['info']['authors'] as $author) {
+                    if (in_array(strtolower($author['name']), array('piwik', 'innocraft', 'matomo', 'matomo-org'))) {
+                        $plugin['isOfficialPlugin'] = true;
+                        break;
+                    }
+                }
+            }
 
             if (!empty($plugin['info']['description'])) {
                 $plugin['info']['description'] = $this->translator->translate($plugin['info']['description']);
@@ -233,10 +316,18 @@ class Controller extends Plugin\ControllerAdmin
                     $suffix = "You may uninstall the plugin or manually delete the files in piwik/plugins/$pluginName/";
                 }
 
-                $description = '<strong>'
-                    . $this->translator->translate('CorePluginsAdmin_PluginNotCompatibleWith', array($pluginName, self::getPiwikVersion()))
-                    . '</strong><br/>'
-                    . $suffix;
+                if ($this->pluginManager->isPluginInFilesystem($pluginName)) {
+                    $description = '<strong>'
+                        . $this->translator->translate('CorePluginsAdmin_PluginNotCompatibleWith',
+                            array($pluginName, self::getPiwikVersion()))
+                        . '</strong><br/>'
+                        . $suffix;
+                } else {
+                    $description = $this->translator->translate('CorePluginsAdmin_PluginNotFound',
+                            array($pluginName))
+                        . "\n"
+                        . $this->translator->translate('CorePluginsAdmin_PluginNotFoundAlternative');
+                }
                 $plugin['info'] = array(
                     'description' => $description,
                     'version'     => $this->translator->translate('General_Unknown'),
@@ -269,16 +360,20 @@ class Controller extends Plugin\ControllerAdmin
 
     public function safemode($lastError = array())
     {
-        ob_clean();
+        if (ob_get_length()) {
+            ob_clean();
+        }
         
         $this->tryToRepairPiwik();
 
-        if (empty($lastError)) {
+        if (empty($lastError) && defined('PIWIK_TEST_MODE') && PIWIK_TEST_MODE) {
             $lastError = array(
                 'message' => Common::getRequestVar('error_message', null, 'string'),
                 'file'    => Common::getRequestVar('error_file', null, 'string'),
                 'line'    => Common::getRequestVar('error_line', null, 'integer')
             );
+        } elseif (empty($lastError)) {
+            throw new Exception('Safemode not available');
         }
 
         $outputFormat = Common::getRequestVar('format', 'html', 'string');
@@ -288,11 +383,17 @@ class Controller extends Plugin\ControllerAdmin
 
             $errorMessage = $lastError['message'];
 
+            if (!empty($lastError['backtrace'])
+                && \Piwik_ShouldPrintBackTraceWithMessage()
+            ) {
+                $errorMessage .= $lastError['backtrace'];
+            }
+
             if (Piwik::isUserIsAnonymous()) {
                 $errorMessage = 'A fatal error occurred.';
             }
 
-            $response = new \Piwik\API\ResponseBuilder($outputFormat);
+            $response = new \Piwik\API\ResponseBuilder($outputFormat, [], false); // don't print the exception backtrace since it will be useless
             $message  = $response->getResponseException(new Exception($errorMessage));
 
             return $message;
@@ -301,6 +402,11 @@ class Controller extends Plugin\ControllerAdmin
         if (Common::isPhpCliMode()) {
             throw new Exception("Error: " . var_export($lastError, true));
         }
+
+        if (!\Piwik_ShouldPrintBackTraceWithMessage()) {
+            unset($lastError['backtrace']);
+        }
+
         $view = new View('@CorePluginsAdmin/safemode');
         $view->lastError   = $lastError;
         $view->isAllowedToTroubleshootAsSuperUser = $this->isAllowedToTroubleshootAsSuperUser();
@@ -356,6 +462,8 @@ class Controller extends Plugin\ControllerAdmin
             $redirectTo = Common::getRequestVar('redirectTo', '', 'string');
             if (!empty($redirectTo) && $redirectTo === 'marketplace') {
                 $this->redirectToIndex('Marketplace', 'overview');
+            } elseif (!empty($redirectTo) && $redirectTo === 'tagmanager') {
+                $this->redirectToIndex('TagManager', 'gettingStarted');
             } elseif (!empty($redirectTo) && $redirectTo === 'referrer') {
                 $this->redirectAfterModification($redirectAfter);
             } else {
@@ -391,7 +499,8 @@ class Controller extends Plugin\ControllerAdmin
         $uninstalled = $this->pluginManager->uninstallPlugin($pluginName);
 
         if (!$uninstalled) {
-            $path = Filesystem::getPathToPiwikRoot() . '/plugins/' . $pluginName . '/';
+            $path = Plugin\Manager::getPluginDirectory($pluginName) . '/';
+
             $messagePermissions = Filechecks::getErrorMessageMissingPermissions($path);
 
             $messageIntro = $this->translator->translate("Warning: \"%s\" could not be uninstalled. Piwik did not have enough permission to delete the files in $path. ",
@@ -410,7 +519,13 @@ class Controller extends Plugin\ControllerAdmin
 
     public function showLicense()
     {
+        Piwik::checkUserHasSomeViewAccess();
+        
         $pluginName = Common::getRequestVar('pluginName', null, 'string');
+
+        if (!Plugin\Manager::getInstance()->isPluginInFilesystem($pluginName)) {
+            throw new Exception('Invalid plugin');
+        }
 
         $metadata = new Plugin\MetadataLoader($pluginName);
         $license_file = $metadata->getPathToLicenseFile();

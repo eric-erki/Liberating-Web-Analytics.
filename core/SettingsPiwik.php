@@ -46,6 +46,16 @@ class SettingsPiwik
     }
 
     /**
+     * Should Piwik show the update notification to superusers only?
+     *
+     * @return bool  True if show to superusers only; false otherwise
+     */
+    public static function isShowUpdateNotificationToSuperUsersOnlyEnabled()
+    {
+        return Config::getInstance()->General['show_update_notification_to_superusers_only'] == 1;
+    }
+
+    /**
      * Returns every stored segment to pre-process for each site during cron archiving.
      *
      * @return array The list of stored segments that apply to all sites.
@@ -188,9 +198,10 @@ class SettingsPiwik
             // if URL changes, always update the cache
             || $currentUrl != $url
         ) {
-            $host = Url::getHostFromUrl($url);
+            $host = Url::getHostFromUrl($currentUrl);
 
             if (strlen($currentUrl) >= strlen('http://a/')
+                && Url::isValidHost($host)
                 && !Url::isLocalHost($host)) {
                 self::overwritePiwikUrl($currentUrl);
             }
@@ -204,7 +215,17 @@ class SettingsPiwik
     }
 
     /**
+     * @see SettingsPiwik::isPiwikInstalled
+     * @return bool
+     */
+    public static function isMatomoInstalled()
+    {
+        return self::isPiwikInstalled();
+    }
+
+    /**
      * Return true if Piwik is installed (installation is done).
+     * @deprecated since Matomo 3.8.0, please use {@link isMatomoInstalled()} instead.
      * @return bool
      */
     public static function isPiwikInstalled()
@@ -235,6 +256,17 @@ class SettingsPiwik
     }
 
     /**
+     * Check if outgoing internet connections are enabled
+     * This is often disable in an intranet environment
+     * 
+     * @return bool
+     */
+    public static function isInternetEnabled()
+    {
+        return (bool) Config::getInstance()->General['enable_internet_features'];
+    }
+    
+    /**
      * Detect whether user has enabled auto updates. Please note this config is a bit misleading. It is currently
      * actually used for 2 things: To disable making any connections back to Piwik, and to actually disable the auto
      * update of core and plugins.
@@ -242,7 +274,12 @@ class SettingsPiwik
      */
     public static function isAutoUpdateEnabled()
     {
-        return (bool) Config::getInstance()->General['enable_auto_update'];
+        $enableAutoUpdate = (bool) Config::getInstance()->General['enable_auto_update'];
+        if(self::isInternetEnabled() === true && $enableAutoUpdate === true){
+            return true;
+        }
+        
+        return false;
     }
 
     /**
@@ -367,7 +404,7 @@ class SettingsPiwik
         $hasError = false !== strpos($fetched, PAGE_TITLE_WHEN_ERROR);
 
         if ($hasError || $expectedStringNotFound) {
-            throw new Exception("\nPiwik should be running at: "
+            throw new Exception("\nMatomo should be running at: "
                 . $piwikServerUrl
                 . " but this URL returned an unexpected response: '"
                 . $fetched . "'\n\n");
@@ -433,7 +470,7 @@ class SettingsPiwik
      * @throws \Exception
      * @return string or False if not set
      */
-    protected static function getPiwikInstanceId()
+    public static function getPiwikInstanceId()
     {
         // until Piwik is installed, we use hostname as instance_id
         if (!self::isPiwikInstalled()

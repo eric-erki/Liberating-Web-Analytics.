@@ -10,8 +10,8 @@ namespace Piwik\Plugins\Ecommerce;
 
 use Piwik\API\Request;
 use Piwik\Common;
-use Piwik\DataTable;
 use Piwik\FrontController;
+use Piwik\Http;
 use Piwik\Piwik;
 use Piwik\Plugins\Goals\API as GoalsApi;
 use Piwik\Translation\Translator;
@@ -44,7 +44,7 @@ class Controller extends \Piwik\Plugins\Goals\Controller
             $goalDefinition['name'] = $this->translator->translate('Goals_Ecommerce');
             $goalDefinition['allow_multiple'] = true;
         } else {
-            $goals = GoalsApi::getInstance()->getGoals($this->idSite);
+            $goals = Request::processRequest('Goals.getGoals', ['idSite' => $this->idSite, 'filter_limit' => '-1'], $default = []);
             if (!isset($goals[$idGoal])) {
                 Piwik::redirectToModule('Goals', 'index', array('idGoal' => null));
             }
@@ -76,11 +76,22 @@ class Controller extends \Piwik\Plugins\Goals\Controller
     {
         $view = new View('@Ecommerce/conversionOverview');
         $idGoal = Common::getRequestVar('idGoal', null, 'string');
+        $period = Common::getRequestVar('period', null, 'string');
+        $segment = Common::getRequestVar('segment', '', 'string');
+        $date = Common::getRequestVar('date', '', 'string');
 
-        $goalMetrics = Request::processRequest('Goals.get', array('idGoal' => $idGoal));
+        $goalMetrics = Request::processRequest('Goals.get', [
+            'idGoal'       => $idGoal,
+            'idSite'       => $this->idSite,
+            'date'         => $date,
+            'period'       => $period,
+            'segment'      => $segment,
+            'filter_limit' => '-1'
+        ], $default = []);
+
         $dataRow = $goalMetrics->getFirstRow();
 
-        $view->idSite = Common::getRequestVar('idSite', null, 'int');
+        $view->idSite = $this->idSite;
         $view->idGoal = $idGoal;
 
         if ($dataRow) {
@@ -97,10 +108,19 @@ class Controller extends \Piwik\Plugins\Goals\Controller
     public function getEcommerceLog($fetch = false)
     {
         $saveGET = $_GET;
-        $_GET['segment'] = urlencode('visitEcommerceStatus!=none');
+        $originalQuery = $_SERVER['QUERY_STRING'];
+
+        if (!empty($_GET['segment'])) {
+            $_GET['segment'] = $_GET['segment'] . ';' . 'visitEcommerceStatus!=none';
+        } else {
+            $_GET['segment'] = 'visitEcommerceStatus!=none';
+        }
+        $_SERVER['QUERY_STRING'] = Http::buildQuery($_GET);
+
         $_GET['widget'] = 1;
         $output = FrontController::getInstance()->dispatch('Live', 'getVisitorLog', array($fetch));
         $_GET   = $saveGET;
+        $_SERVER['QUERY_STRING'] = $originalQuery;
 
         return $output;
     }

@@ -15,6 +15,8 @@ use Piwik\DataTable\Renderer;
 use Piwik\DataTable\DataTableInterface;
 use Piwik\DataTable\Filter\ColumnDelete;
 use Piwik\DataTable\Filter\Pattern;
+use Piwik\Http\HttpCodeException;
+use Piwik\Plugins\Monolog\Processor\ExceptionToTextProcessor;
 
 /**
  */
@@ -28,16 +30,18 @@ class ResponseBuilder
 
     private $apiModule = false;
     private $apiMethod = false;
+    private $shouldPrintBacktrace = false;
 
     /**
      * @param string $outputFormat
      * @param array $request
      */
-    public function __construct($outputFormat, $request = array())
+    public function __construct($outputFormat, $request = array(), $shouldPrintBacktrace = null)
     {
         $this->outputFormat = $outputFormat;
         $this->request      = $request;
         $this->apiRenderer  = ApiRenderer::factory($outputFormat, $request);
+        $this->shouldPrintBacktrace = $shouldPrintBacktrace === null ? \Piwik_ShouldPrintBackTraceWithMessage() : $shouldPrintBacktrace;
     }
 
     public function disableSendHeader()
@@ -132,6 +136,13 @@ class ResponseBuilder
         $e       = $this->decorateExceptionWithDebugTrace($e);
         $message = $this->formatExceptionMessage($e);
 
+        if ($this->sendHeader
+            && $e instanceof HttpCodeException
+            && $e->getCode() > 0
+        ) {
+            http_response_code($e->getCode());
+        }
+
         $this->sendHeaderIfEnabled();
 
         return $this->apiRenderer->renderException($message, $e);
@@ -145,7 +156,7 @@ class ResponseBuilder
     {
         // If we are in tests, show full backtrace
         if (defined('PIWIK_PATH_TEST_TO_ROOT')) {
-            if (\Piwik_ShouldPrintBackTraceWithMessage()) {
+            if ($this->shouldPrintBacktrace) {
                 $message = $e->getMessage() . " in \n " . $e->getFile() . ":" . $e->getLine() . " \n " . $e->getTraceAsString();
             } else {
                 $message = $e->getMessage() . "\n \n --> To temporarily debug this error further, set const PIWIK_PRINT_ERROR_BACKTRACE=true; in index.php";
@@ -163,9 +174,10 @@ class ResponseBuilder
      */
     private function formatExceptionMessage($exception)
     {
-        $message = $exception->getMessage();
-        if (\Piwik_ShouldPrintBackTraceWithMessage()) {
-            $message .= "\n" . $exception->getTraceAsString();
+        $message = ExceptionToTextProcessor::getWholeBacktrace($exception, $this->shouldPrintBacktrace);
+
+        if ($exception instanceof \Piwik\Exception\Exception && $exception->isHtmlMessage() && Request::isRootRequestApiRequest()) {
+            $message = strip_tags(str_replace('<br />', PHP_EOL, $message));
         }
 
         return Renderer::formatValueXml($message);

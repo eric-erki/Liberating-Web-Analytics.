@@ -47,6 +47,11 @@ class Cloud extends Visualization
         $this->config->show_limit_control          = false;
     }
 
+    public function beforeLoadDataTable()
+    {
+        $this->checkRequestIsNotForMultiplePeriods();
+    }
+
     public function afterAllFiltersAreApplied()
     {
         if ($this->dataTable->getRowsCount() == 0) {
@@ -78,6 +83,7 @@ class Cloud extends Visualization
         }
 
         $this->assignTemplateVar('labelMetadata', $labelMetadata);
+        $this->assignTemplateVar('cloudColumn', $columnToDisplay);
         $this->assignTemplateVar('cloudValues', $cloudValues);
     }
 

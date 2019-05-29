@@ -23,11 +23,13 @@ use Piwik\Plugin;
 use Piwik\Plugin\Manager as PluginManager;
 use Piwik\Plugins\LanguagesManager\LanguagesManager;
 use Piwik\Plugins\Marketplace\Plugins;
+use Piwik\SettingsPiwik;
 use Piwik\SettingsServer;
 use Piwik\Updater as DbUpdater;
 use Piwik\Version;
 use Piwik\View;
 use Piwik\View\OneClickDone;
+use Piwik\Updater\Migration\Db as DbMigration;
 
 class Controller extends \Piwik\Plugin\Controller
 {
@@ -165,8 +167,6 @@ class Controller extends \Piwik\Plugin\Controller
             $messages = $e->getUpdateLogMessages();
         }
 
-        Filesystem::deleteAllCacheOnUpdate();
-
         $view->feedbackMessages = $messages;
         $this->addCustomLogoInfo($view);
         return $view->render();
@@ -174,6 +174,8 @@ class Controller extends \Piwik\Plugin\Controller
 
     public function oneClickResults()
     {
+        Filesystem::deleteAllCacheOnUpdate();
+
         $httpsFail = (bool) Common::getRequestVar('httpsFail', 0, 'int', $_POST);
         $error = Common::getRequestVar('error', '', 'string', $_POST);
 
@@ -254,7 +256,12 @@ class Controller extends \Piwik\Plugin\Controller
         }
 
         if ($doDryRun) {
-            $viewWelcome->queries = $updater->getSqlQueriesToExecute();
+            $migrations = $updater->getSqlQueriesToExecute();
+            $queryCount = count($migrations);
+
+            $migrations = $this->groupMigrations($migrations);
+            $viewWelcome->migrations = $migrations;
+            $viewWelcome->queryCount = $queryCount;
             $viewWelcome->isMajor = $updater->hasMajorDbUpdate();
             $this->doWelcomeUpdates($viewWelcome, $componentsWithUpdateFile);
             return $viewWelcome->render();
@@ -273,10 +280,40 @@ class Controller extends \Piwik\Plugin\Controller
         exit;
     }
 
+    private function groupMigrations($migrations)
+    {
+        $result = [];
+
+        $group = null;
+        foreach ($migrations as $migration) {
+            $type = $migration instanceof DbMigration ? 'sql' : 'command';
+            if ($group === null
+                || $type != $group['type']
+            ) {
+                $group = [
+                    'type' => $type,
+                    'migrations' => [],
+                ];
+                $result[] = $group;
+            }
+
+            $result[count($result) - 1]['migrations'][] = $migration;
+        }
+
+        return $result;
+    }
+
     private function doWelcomeUpdates($view, $componentsWithUpdateFile)
     {
         $view->new_piwik_version = Version::VERSION;
         $view->commandUpgradePiwik = "php " . Filesystem::getPathToPiwikRoot() . "/console core:update";
+
+        $instanceId = SettingsPiwik::getPiwikInstanceId();
+
+        if ($instanceId) {
+            $view->commandUpgradePiwik .= ' --matomo-domain="' . $instanceId . '"';
+        }
+
         $pluginNamesToUpdate = array();
         $dimensionsToUpdate = array();
         $coreToUpdate = false;

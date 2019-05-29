@@ -20,7 +20,7 @@ class DbTest extends IntegrationTestCase
 {
     public function test_getColumnNamesFromTable()
     {
-        $this->assertColumnNames('access', array('login', 'idsite', 'access'));
+        $this->assertColumnNames('access', array('idaccess', 'login', 'idsite', 'access'));
         $this->assertColumnNames('option', array('option_name', 'option_value', 'autoload'));
     }
 
@@ -83,6 +83,21 @@ class DbTest extends IntegrationTestCase
         Db::setDatabaseObject($db);
         $this->assertTrue(Db::releaseDbLock('MyLock'));
         Db::destroyDatabaseObject();
+    }
+
+    /**
+     * @dataProvider getDbAdapter
+     */
+    public function test_getRowCount($adapter, $expectedClass)
+    {
+        Db::destroyDatabaseObject();
+        Config::getInstance()->database['adapter'] = $adapter;
+        $db = Db::get();
+        // make sure test is useful and setting adapter works
+        $this->assertInstanceOf($expectedClass, $db);
+
+        $result = $db->query('select 21');
+        $this->assertEquals(1, $db->rowCount($result));
     }
 
     public function getDbAdapter()

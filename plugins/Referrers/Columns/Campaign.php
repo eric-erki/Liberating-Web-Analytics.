@@ -24,15 +24,11 @@ class Campaign extends Base
      * @var bool
      */
     protected $createNewVisitWhenCampaignChanges;
+    protected $nameSingular = 'Referrers_ColumnCampaign';
 
     public function __construct()
     {
         $this->createNewVisitWhenCampaignChanges = TrackerConfig::getConfigValue('create_new_visit_when_campaign_changes') == 1;
-    }
-
-    public function getName()
-    {
-        return Piwik::translate('Referrers_ColumnCampaign');
     }
 
     /**
@@ -52,8 +48,12 @@ class Campaign extends Base
 
         $information = $this->getReferrerInformationFromRequest($request, $visitor);
 
+        // we force a new visit if the referrer is a campaign and it's different than the currently recorded referrer.
+        // if the current referrer is 'direct entry', however, we assume the referrer information was sent in a later request, and
+        // we just update the existing referrer information instead of creating a visit.
         if ($information['referer_type'] == Common::REFERRER_TYPE_CAMPAIGN
             && $this->isReferrerInformationNew($visitor, $information)
+            && !$this->isCurrentReferrerDirectEntry($visitor)
         ) {
             Common::printDebug("Existing visit detected, but creating new visit because campaign information is different than last action.");
 

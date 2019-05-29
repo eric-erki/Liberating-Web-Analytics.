@@ -7,7 +7,7 @@
 		<nb_actions>1</nb_actions>
 		<nb_users>0</nb_users>
 		<max_actions>1</max_actions>
-		<sum_visit_length>0</sum_visit_length>
+		<sum_visit_length>1</sum_visit_length>
 		<bounce_count>1</bounce_count>
 		<goals>
 			<row idgoal='2'>
@@ -20,7 +20,7 @@
 		<revenue>1</revenue>
 		<segment>referrerType==search;referrerName==Yahoo%21</segment>
 		<url>http://search.yahoo.com</url>
-		<logo>plugins/Referrers/images/searchEngines/search.yahoo.com.png</logo>
+		<logo>plugins/Morpheus/icons/dist/searchEngines/search.yahoo.com.png</logo>
 		<subtable>
 			<row>
 				<label>purchase</label>
@@ -29,7 +29,7 @@
 				<nb_actions>1</nb_actions>
 				<nb_users>0</nb_users>
 				<max_actions>1</max_actions>
-				<sum_visit_length>0</sum_visit_length>
+				<sum_visit_length>1</sum_visit_length>
 				<bounce_count>1</bounce_count>
 				<nb_visits_converted>1</nb_visits_converted>
 			</row>

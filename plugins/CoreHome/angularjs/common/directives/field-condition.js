@@ -28,10 +28,9 @@
         function getValueFromElement(element)
         {
             if (element.attr('type') === 'checkbox') {
-                return element.is(':checked')
+                return element.is(':checked');
             } else if (element.attr('type') === 'radio') {
-                var name = element.attr('name');
-                return $('.form-group [name=' + name + ']:checked').val()
+                return $('.form-group [name=' + element.attr('name') + ']:checked').val();
             } else if (element.prop('tagName').toLowerCase() === 'select') {
                 var name = element.val();
                 if (name.indexOf('string:') === 0) {
@@ -59,12 +58,12 @@
             scope.allValues = {};
             angular.forEach(fieldNames, function (name) {
                 var actualField = $('.form-group [name=' + name + ']').first();
-                if (actualField.size()) {
+                if (actualField.length) {
                     scope.allValues[name] = getValueFromElement(actualField);
                     actualField.on('change', function () {
                         scope.allValues[name] = getValueFromElement($(this));
                         evaluate(scope, condition, element);
-                    })
+                    });
                 }
             });
 

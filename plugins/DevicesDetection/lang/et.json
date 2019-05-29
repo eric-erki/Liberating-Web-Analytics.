@@ -1,14 +1,17 @@
 {
     "DevicesDetection": {
         "BrowserEngine": "Veebisirvija",
+        "BrowserEngines": "Veebimootorid",
         "BrowserFamily": "Sirvija tüüp",
         "Browsers": "Veebisirvijad",
         "BrowserVersion": "Sirvija versioon",
         "BrowserVersions": "Brauseri versioonid",
         "Camera": "Kaamera",
         "CarBrowser": "Sõiduki sirvik",
+        "Software": "Tarkvara",
         "ColumnBrowser": "Veebisirvija",
         "ColumnOperatingSystem": "Operatsioonisüsteem",
+        "ColumnOperatingSystemVersion": "Operatsioonisüsteemi versioon",
         "Console": "Konsool",
         "dataTableLabelBrands": "Bränd",
         "dataTableLabelModels": "Mudel",

@@ -4,12 +4,16 @@
 	<prettyDate>January 3 – 9, 2010</prettyDate>
 	<metadata>
 		<category>Referrers</category>
-		<subcategory>Websites &amp; Social</subcategory>
+		<subcategory>Websites</subcategory>
 		<name>Websites</name>
 		<module>Referrers</module>
 		<action>getWebsites</action>
 		<dimension>Website</dimension>
 		<documentation>In this table, you can see which websites referred visitors to your site. &lt;br /&gt; By clicking on a row in the table, you can see which URLs the links to your website were on.</documentation>
+		<dimensions>
+			<Referrers_Website>Website</Referrers_Website>
+			<Referrers_WebsitePage>Website Page</Referrers_WebsitePage>
+		</dimensions>
 		<metrics>
 			<nb_visits>Visits</nb_visits>
 			<nb_uniq_visitors>Unique visitors</nb_uniq_visitors>
@@ -17,8 +21,8 @@
 			<nb_users>Users</nb_users>
 		</metrics>
 		<metricsDocumentation>
-			<nb_visits>If a visitor comes to your website for the first time or if he visits a page more than 30 minutes after his last page view, this will be recorded as a new visit.</nb_visits>
-			<nb_uniq_visitors>The number of unduplicated visitors coming to your website. Every user is only counted once, even if he visits the website multiple times a day.</nb_uniq_visitors>
+			<nb_visits>If a visitor comes to your website for the first time or if they visit a page more than 30 minutes after their last page view, this will be recorded as a new visit.</nb_visits>
+			<nb_uniq_visitors>The number of unduplicated visitors coming to your website. Every user is only counted once, even if they visit the website multiple times a day.</nb_uniq_visitors>
 			<nb_actions>The number of actions performed by your visitors. Actions can be page views, internal site searches, downloads or outlinks.</nb_actions>
 			<nb_users>The number of users logged in your website. It is the number of unique active users that have a User ID set (via the Tracking code function 'setUserId').</nb_users>
 			<nb_actions_per_visit>The average number of actions (page views, site searches, downloads or outlinks) that were performed during the visits.</nb_actions_per_visit>
@@ -65,7 +69,7 @@
 				<nb_actions_per_visit>1</nb_actions_per_visit>
 				<avg_time_on_site>00:00:00</avg_time_on_site>
 				<bounce_rate>100%</bounce_rate>
-				<revenue>$ 0</revenue>
+				<revenue>$0</revenue>
 			</row>
 		</result>
 		<result prettyDate="Monday, January 4, 2010">
@@ -78,7 +82,7 @@
 				<nb_actions_per_visit>1</nb_actions_per_visit>
 				<avg_time_on_site>00:00:00</avg_time_on_site>
 				<bounce_rate>100%</bounce_rate>
-				<revenue>$ 0</revenue>
+				<revenue>$0</revenue>
 			</row>
 		</result>
 		<result prettyDate="Tuesday, January 5, 2010" />
@@ -94,7 +98,7 @@
 				<nb_actions_per_visit>5</nb_actions_per_visit>
 				<avg_time_on_site>00:15:01</avg_time_on_site>
 				<bounce_rate>0%</bounce_rate>
-				<revenue>$ 0</revenue>
+				<revenue>$0</revenue>
 			</row>
 		</result>
 		<result prettyDate="Saturday, January 9, 2010">
@@ -107,7 +111,7 @@
 				<nb_actions_per_visit>5</nb_actions_per_visit>
 				<avg_time_on_site>00:15:01</avg_time_on_site>
 				<bounce_rate>0%</bounce_rate>
-				<revenue>$ 0</revenue>
+				<revenue>$0</revenue>
 			</row>
 		</result>
 	</reportData>
@@ -116,14 +120,14 @@
 			<row>
 				
 				<segment>referrerName==referrer.com</segment>
-				<idsubdatatable>1965</idsubdatatable>
+				<idsubdatatable>2</idsubdatatable>
 			</row>
 		</result>
 		<result prettyDate="Monday, January 4, 2010">
 			<row>
 				
 				<segment>referrerName==referrer.com</segment>
-				<idsubdatatable>1967</idsubdatatable>
+				<idsubdatatable>4</idsubdatatable>
 			</row>
 		</result>
 		<result prettyDate="Tuesday, January 5, 2010" />
@@ -133,22 +137,26 @@
 			<row>
 				
 				<segment>referrerName==referrer.com</segment>
-				<idsubdatatable>1972</idsubdatatable>
+				<idsubdatatable>9</idsubdatatable>
 			</row>
 		</result>
 		<result prettyDate="Saturday, January 9, 2010">
 			<row>
 				
 				<segment>referrerName==referrer.com</segment>
-				<idsubdatatable>1974</idsubdatatable>
+				<idsubdatatable>11</idsubdatatable>
 			</row>
 		</result>
 	</reportMetadata>
 	<reportTotal>
-		<nb_visits>4</nb_visits>
 		<nb_uniq_visitors>4</nb_uniq_visitors>
+		<nb_visits>4</nb_visits>
 		<nb_actions>12</nb_actions>
-		<nb_visits_converted>0</nb_visits_converted>
+		<nb_users>0</nb_users>
+		<max_actions>5</max_actions>
+		<sum_visit_length>1802</sum_visit_length>
 		<bounce_count>2</bounce_count>
+		<nb_visits_converted>0</nb_visits_converted>
+		<nb_actions_per_visit>12</nb_actions_per_visit>
 	</reportTotal>
 </result>

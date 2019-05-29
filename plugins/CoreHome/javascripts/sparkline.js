@@ -7,7 +7,10 @@
 
 (function ($) {
 
-var sparklineColorNames = ['backgroundColor', 'lineColor', 'minPointColor', 'maxPointColor', 'lastPointColor'];
+var sparklineColorNames = ['backgroundColor', 'lineColor', 'minPointColor', 'maxPointColor', 'lastPointColor', 'fillColor'];
+
+var sparklineDisplayHeight = 25;
+var sparklineDisplayWidth = 100;
 
 piwik.getSparklineColors = function () {
     return piwik.ColorManager.getColors('sparkline-colors', sparklineColorNames);
@@ -27,9 +30,11 @@ piwik.initSparklines = function() {
 
         // Append the token_auth to the URL if it was set (eg. embed dashboard)
         var token_auth = broadcast.getValueFromUrl('token_auth');
-        if (token_auth.length) {
+        if (token_auth.length && piwik.shouldPropagateTokenAuth) {
             appendToSparklineUrl += '&token_auth=' + token_auth;
         }
+        $self.attr('width', sparklineDisplayWidth);
+        $self.attr('height', sparklineDisplayHeight);
         $self.attr('src', $self.attr('data-src') + appendToSparklineUrl);
     });
 };
@@ -41,7 +46,7 @@ window.initializeSparklines = function () {
         var graph = $(this);
 
         // we search for .widget to make sure eg in the Dashboard to not update any graph of another report
-        var selectorsToFindParent = ['.widget', '.reporting-page', 'body'];
+        var selectorsToFindParent = ['.widget', '[piwik-widget-container]', '.reporting-page', 'body'];
         var index = 0, selector, parent;
         for (index; index < selectorsToFindParent.length; index++) {
             selector = selectorsToFindParent[index];

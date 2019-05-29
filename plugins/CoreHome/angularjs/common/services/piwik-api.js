@@ -68,7 +68,10 @@ var hasBlockedContent = false;
                     id: 'ajaxHelper',
                     placeat: options.placeat
                 });
-                notification.scrollToNotification();
+                setTimeout(function () {
+                    // give some time for angular to render it
+                    notification.scrollToNotification();
+                }, 100);
             }
         }
 
@@ -87,6 +90,7 @@ var hasBlockedContent = false;
 
             function onSuccess(response)
             {
+                var headers = response.headers;
                 response = response.data;
 
                 if (!angular.isDefined(response) || response === null) {
@@ -98,7 +102,7 @@ var hasBlockedContent = false;
 
                     return $q.reject(response.message || null);
                 } else {
-                    return response;
+                    return options.includeHeaders ? { headers: headers, response: response } : response;
                 }
             }
 
@@ -130,7 +134,7 @@ var hasBlockedContent = false;
                 method: 'POST',
                 url: url,
                 responseType: requestFormat,
-                params: _mixinDefaultGetParams(getParams),
+                params: mixinDefaultGetParams(getParams),
                 data: $.param(getPostParams(postParams)),
                 timeout: requestPromise,
                 headers: headers
@@ -164,8 +168,12 @@ var hasBlockedContent = false;
             var request = addAbortMethod(promise, deferred);
 
             allRequests.push(request);
-
-            return request;
+            return request.finally(function() {
+                var index = allRequests.indexOf(request);
+                if (index !== -1) {
+                    allRequests.splice(index, 1);
+                }
+            });
         }
 
         /**
@@ -176,7 +184,7 @@ var hasBlockedContent = false;
          * @private
          */
         function getPostParams (params) {
-            if (isRequestToApiMethod()) {
+            if (isRequestToApiMethod() || piwik.shouldPropagateTokenAuth) {
                 params.token_auth = piwik.token_auth;
             }
 
@@ -190,7 +198,7 @@ var hasBlockedContent = false;
          * @return {object}
          * @private
          */
-        function _mixinDefaultGetParams (getParamsToMixin) {
+        function mixinDefaultGetParams (getParamsToMixin) {
             var segment = piwik.broadcast.getValueFromHash('segment', $window.location.href.split('#')[1]);
 
             // we have to decode the value manually because broadcast will not decode anything itself. if we don't,
@@ -210,17 +218,14 @@ var hasBlockedContent = false;
             }
 
             for (var key in defaultParams) {
-                if (!getParamsToMixin[key] && !postParams[key] && defaultParams[key]) {
+                if (!(key in getParamsToMixin) && !(key in postParams) && defaultParams[key]) {
                     getParamsToMixin[key] = defaultParams[key];
                 }
             }
 
             // handle default date & period if not already set
             if (!getParamsToMixin.date && !postParams.date) {
-                getParamsToMixin.date = piwik.currentDateString || piwik.broadcast.getValueFromUrl('date');
-                if (getParamsToMixin.period == 'range' && piwik.currentDateString) {
-                    getParamsToMixin.date = piwik.startDateString + ',' + getParamsToMixin.date;
-                }
+                getParamsToMixin.date = piwik.currentDateString;
             }
 
             return getParamsToMixin;
@@ -330,7 +335,8 @@ var hasBlockedContent = false;
              * @deprecated
              */
             abort: abort,
-            abortAll: abortAll
+            abortAll: abortAll,
+            mixinDefaultGetParams: mixinDefaultGetParams
         };
     }
 })();

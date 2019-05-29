@@ -9,6 +9,8 @@
 namespace Piwik\Plugins\ProfessionalServices;
 
 use Piwik\Common;
+use Piwik\View;
+use Piwik\Plugin;
 
 class ProfessionalServices extends \Piwik\Plugin
 {
@@ -24,6 +26,12 @@ class ProfessionalServices extends \Piwik\Plugin
             'Template.afterGoalCannotAddNewGoal' => array('function' => 'getGoalOverviewPromo', 'after' => true),
             'Template.endGoalEditTable' => array('function' => 'getGoalFunnelOverviewPromo', 'after' => true),
             'Template.afterEventsReport' => 'getEventsPromo',
+            'Template.afterCampaignsReport' => 'getCampaignsPromo',
+            'Template.afterReferrerTypeReport' => 'getReferrerTypePromo',
+            'Template.afterReferrersKeywordsReport' => 'getSearchKeywordsPerformancePromo',
+            'Template.afterCustomVariablesReport' => 'getCustomVariablesPromo',
+            'Template.afterOverlaySidebar' => 'getHeatmapPromo',
+            'Template.afterVisitorProfileOverview' => 'getSessionRecordingPromo',
         );
     }
 
@@ -46,7 +54,7 @@ class ProfessionalServices extends \Piwik\Plugin
                 $action = 'promoServices';
             }
 
-            if($action == 'rssPiwikPro') {
+            if ($action == 'rssPiwikPro') {
                 $action = 'rss';
             }
         }
@@ -58,49 +66,99 @@ class ProfessionalServices extends \Piwik\Plugin
         return $isWidget;
     }
 
-    public function getGoalFunnelOverviewPromo(&$out)
+    public function getHeatmapPromo(&$out)
     {
-        if(\Piwik\Plugin\Manager::getInstance()->isPluginActivated('Funnels')
-            || $this->isRequestForDashboardWidget()) {
+        if (!$this->shouldShowPromoForPlugin('HeatmapSessionRecording')) {
             return;
         }
 
-        $out .= '
-            <p style="margin-top:3em;margin-bottom:3em" class=" alert-info alert">Did you know?
-                A Funnel defines a series of actions that you expect your visitors to take on their way to converting a goal.
-                <br/>With <a target="_blank" rel="noreferrer" href="https://piwik.org/recommends/conversion-funnel/">Funnels for Piwik</a>,
-                you can easily determine your funnel and see where your visitors drop off and how to focus efforts to increase your conversions.
-            </p>';
+        $view = new View('@ProfessionalServices/promoHeatmaps');
+        $out .= $view->render();
     }
 
+    public function getSessionRecordingPromo(&$out)
+    {
+        if (!$this->shouldShowPromoForPlugin('HeatmapSessionRecording')) {
+            return;
+        }
+
+        $view = new View('@ProfessionalServices/promoSessionRecordings');
+        $out .= $view->render();
+    }
+
+    public function getSearchKeywordsPerformancePromo(&$out)
+    {
+        if (!$this->shouldShowPromoForPlugin('SearchEngineKeywordsPerformance')) {
+            return;
+        }
+
+        $view = new View('@ProfessionalServices/promoSearchKeywords');
+        $out .= $view->render();
+    }
+
+    public function getGoalFunnelOverviewPromo(&$out)
+    {
+        if ($this->shouldShowPromoForPlugin('Funnels')) {
+            $view = new View('@ProfessionalServices/promoFunnel');
+            $out .= $view->render();
+        }
+    }
 
     public function getGoalOverviewPromo(&$out)
     {
-        if(\Piwik\Plugin\Manager::getInstance()->isPluginActivated('AbTesting')
-            || $this->isRequestForDashboardWidget()) {
-            return;
+        if ($this->shouldShowPromoForPlugin('AbTesting')) {
+            $view = new View('@ProfessionalServices/promoExperiments.twig');
+            $out .= $view->render();
         }
+    }
 
-        $out .= '
-            <p style="margin-top:3em" class=" alert-info alert">Did you know?
-                With <a target="_blank" rel="noreferrer" href="https://piwik.org/recommends/ab-testing-learn-more/">A/B Testing for Piwik</a> you can immediately increase conversions and sales by creating different versions of a page to see which one grows your business.
-            </p>
-            ';
+    public function getCustomVariablesPromo(&$out)
+    {
+        if ($this->shouldShowPromoForPlugin('CustomReports')) {
+            $view = new View('@ProfessionalServices/promoCustomVariables.twig');
+            $out .= $view->render();
+        }
     }
 
     public function getEventsPromo(&$out)
     {
-        if($this->isRequestForDashboardWidget()) {
+        if ($this->isRequestForDashboardWidget()) {
             return;
         }
-        $inlineAd = '';
-        if(!\Piwik\Plugin\Manager::getInstance()->isPluginActivated('MediaAnalytics')) {
-            $inlineAd = '<br/>When you publish videos or audios, <a target="_blank" rel="noreferrer" href="https://piwik.org/recommends/media-analytics-website">Media Analytics gives deep insights into your audience</a> and how they watch your videos or listens to your music.';
-        }
-        $out .= '<p style="margin-top:3em" class=" alert-info alert">Did you know?
-                <br/>Using Events you can measure any user interaction and gain amazing insights into your audience. <a target="_blank" href="?module=Proxy&action=redirect&url=http://piwik.org/docs/event-tracking/">Learn more</a>.
-              <br/> To measure blocks of content such as image galleries, listings or ads: use <a target="_blank" href="?module=Proxy&action=redirect&url=http://developer.piwik.org/guides/content-tracking">Content Tracking</a> and see exactly which content is viewed and clicked.
-              ' . $inlineAd . '
-            </p>';
+
+        $view = new View('@ProfessionalServices/promoBelowEvents');
+        $view->displayMediaAnalyticsAd = !$this->isPluginActivated('MediaAnalytics');
+        $out .= $view->render();
     }
+
+    public function getCampaignsPromo(&$out)
+    {
+        if ($this->isRequestForDashboardWidget()) {
+            return;
+        }
+
+        $view = new View('@ProfessionalServices/promoBelowCampaigns');
+        $view->displayMarketingCampaignsReportingAd = !$this->isPluginActivated('MarketingCampaignsReporting');
+        $view->multiChannelConversionAttributionAd = !$this->isPluginActivated('MultiChannelConversionAttribution') && !empty($_REQUEST['idGoal']);
+        $out .= $view->render();
+    }
+
+    public function getReferrerTypePromo(&$out)
+    {
+        if ($this->shouldShowPromoForPlugin('MultiChannelConversionAttribution') && !empty($_REQUEST['idGoal'])) {
+            $view = new View('@ProfessionalServices/promoBelowReferrerTypes');
+            $out .= $view->render();
+        }
+    }
+
+    private function shouldShowPromoForPlugin($pluginName)
+    {
+        return !$this->isPluginActivated($pluginName) && !$this->isRequestForDashboardWidget();
+    }
+
+    private function isPluginActivated($pluginName)
+    {
+        return Plugin\Manager::getInstance()->isPluginActivated($pluginName);
+    }
+
 }

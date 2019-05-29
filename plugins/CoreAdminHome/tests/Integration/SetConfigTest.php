@@ -131,7 +131,7 @@ class SetConfigTest extends ConsoleCommandTestCase
         $this->assertEquals(array('def'), $config->MySection['object_value']);
         $this->assertArrayNotHasKey('other_array_value', $config->MySection);
 
-        $this->assertContains("Done.", $this->applicationTester->getDisplay());
+        $this->assertContains("done.", $this->applicationTester->getDisplay());
     }
 
     /**
@@ -150,7 +150,7 @@ class SetConfigTest extends ConsoleCommandTestCase
         $config = self::makeNewConfig();
 
         $this->assertEquals(0, $config->Tracker['debug']);
-        $this->assertContains("Done.", $this->applicationTester->getDisplay());
+        $this->assertContains("done.", $this->applicationTester->getDisplay());
     }
 
     public function getOptionsForSettingValueToZeroTests()
@@ -192,8 +192,7 @@ class SetConfigTest extends ConsoleCommandTestCase
 
                 // copy over sections required for tests
                 $config->tests = $actualGlobalSettingsProvider->getSection('tests');
-                $config->database = $actualGlobalSettingsProvider->getSection('database');
-                $config->database_tests = $actualGlobalSettingsProvider->getSection('database_tests');
+                $config->database = $actualGlobalSettingsProvider->getSection('database_tests');
 
                 return $config;
             },

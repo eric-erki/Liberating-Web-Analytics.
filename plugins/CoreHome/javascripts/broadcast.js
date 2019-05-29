@@ -35,6 +35,12 @@ var broadcast = {
     popoverHandlers: [],
 
     /**
+     * Holds the stack of popovers opened in sequence. When closing a popover, the last popover in the stack
+     * is opened (if any).
+     */
+    popoverParamStack: [],
+
+    /**
      * Force reload once
      */
     forceReload: false,
@@ -46,6 +52,9 @@ var broadcast = {
 
     /**
      * Initializes broadcast object
+     *
+     * @deprecated in 3.2.2, will be removed in Piwik 4
+     *
      * @return {void}
      */
     init: function (noLoadingMessage) {
@@ -72,6 +81,8 @@ var broadcast = {
      *
      * * Note: the method is manipulated in Overlay/javascripts/Piwik_Overlay.js - keep this in mind when making changes.
      *
+     * @deprecated since 3.2.2, will be removed in Piwik 4
+     *
      * @param {string}  hash to load page with
      * @return {void}
      */
@@ -91,6 +102,7 @@ var broadcast = {
         if (hash && 0 === (''+hash).indexOf('/')) {
             hash = (''+hash).substr(1);
         }
+
 
         if (hash) {
 
@@ -124,7 +136,7 @@ var broadcast = {
                 popoverParamUpdated = (popoverParam != '');
             }
 
-            if (pageUrlUpdated || broadcast.forceReload) {
+            if (!broadcast.isWidgetizedDashboard() && (pageUrlUpdated || broadcast.forceReload)) {
                 Piwik_Popover.close();
 
                 if (hashUrl != broadcast.currentHashUrl || broadcast.forceReload) {
@@ -144,9 +156,9 @@ var broadcast = {
             broadcast.currentHashUrl = hashUrl;
             broadcast.currentPopoverParameter = popoverParam;
 
-            if (popoverParamUpdated && popoverParam == '') {
-                Piwik_Popover.close();
-            } else if (popoverParamUpdated) {
+            Piwik_Popover.close();
+
+            if (popoverParamUpdated) {
                 var popoverParamParts = popoverParam.split(':');
                 var handlerName = popoverParamParts[0];
                 popoverParamParts.shift();
@@ -159,8 +171,14 @@ var broadcast = {
         } else {
             // start page
             Piwik_Popover.close();
-            $('.pageWrap #content:not(.admin)').empty();
+            if (!broadcast.isWidgetizedDashboard()) {
+                $('.pageWrap #content:not(.admin)').empty();
+            }
         }
+    },
+
+    isWidgetizedDashboard: function() {
+        return broadcast.getValueFromUrl('module') == 'Widgetize' && broadcast.getValueFromUrl('moduleToWidgetize') == 'Dashboard';
     },
 
     /**
@@ -172,7 +190,6 @@ var broadcast = {
     },
 
     /**
-     * ONLY USED BY OVERLAY
      * propagateAjax -- update hash values then make ajax calls.
      *    example :
      *       1) <a href="javascript:broadcast.propagateAjax('module=Referrers&action=getKeywords')">View keywords report</a>
@@ -181,6 +198,8 @@ var broadcast = {
      * Will propagate your new value into the current hash string and make ajax calls.
      *
      * NOTE: this method will only make ajax call and replacing main content.
+     *
+     * @deprecated in 3.2.2, will be removed in Piwik 4.
      *
      * @param {string} ajaxUrl  querystring with parameters to be updated
      * @param {boolean} [disableHistory]  the hash change won't be available in the browser history
@@ -237,20 +256,16 @@ var broadcast = {
     },
 
     /**
-     * propagateAjax -- update hash values then make ajax calls.
-     *    example :
-     *       1) <a href="javascript:broadcast.propagateAjax('module=Referrers&action=getKeywords')">View keywords report</a>
-     *       2) Main menu li also goes through this function.
+     * Returns the current hash with updated parameters that were provided in ajaxUrl
      *
-     * Will propagate your new value into the current hash string and make ajax calls.
+     * Parameters like idGoal and idDashboard will be automatically reset if the won't be relevant anymore
      *
-     * NOTE: this method will only make ajax call and replacing main content.
+     * NOTE: this method does not issue any ajax call, but returns the hash instead
      *
      * @param {string} ajaxUrl  querystring with parameters to be updated
-     * @param {boolean} [disableHistory]  the hash change won't be available in the browser history
-     * @return {void}
+     * @return {string} current hash with updated parameters
      */
-    buildReportingUrl: function (ajaxUrl, disableHistory) {
+    buildReportingUrl: function (ajaxUrl) {
 
         // available in global scope
         var currentHashStr = broadcast.getHash();
@@ -283,8 +298,6 @@ var broadcast = {
      *         1) We want to update idSite to both search query and hash then reload the page,
      *         2) update period to both search query and hash then reload page.
      *
-     * ** If you'd like to make ajax call with new values then use propagateAjax ** *
-     *
      * Expecting:
      *         str = "param1=newVal1&param2=newVal2";
      *
@@ -308,9 +321,19 @@ var broadcast = {
         // available in global scope
         var currentSearchStr = window.location.search;
         var currentHashStr = broadcast.getHashFromUrl();
+        
+        if (!currentSearchStr) {
+            currentSearchStr = '?';
+        }
+
         var oldUrl = currentSearchStr + currentHashStr;
 
         for (var i = 0; i < params_vals.length; i++) {
+
+            if(params_vals[i].length == 0) {
+                continue; // updating with empty string would destroy some values
+            }
+
             // update both the current search query and hash string
             currentSearchStr = broadcast.updateParamValue(params_vals[i], currentSearchStr);
 
@@ -423,13 +446,11 @@ var broadcast = {
      *                       handler.
      */
     propagateNewPopoverParameter: function (handlerName, value) {
-        // init broadcast if not already done (it is required to make popovers work in widgetize mode)
-        //broadcast.init(true);
 
         var $location = angular.element(document).injector().get('$location');
 
         var popover = '';
-        if (handlerName) {
+        if (handlerName && '' != value && 'undefined' != typeof value) {
             popover = handlerName + ':' + value;
 
             // between jquery.history and different browser bugs, it's impossible to ensure
@@ -437,17 +458,28 @@ var broadcast = {
             // make sure it doesn't change, we have to manipulate the url encoding a bit.
             popover = encodeURIComponent(popover);
             popover = popover.replace(/%/g, '\$');
+
+            broadcast.popoverParamStack.push(popover);
+        } else {
+            broadcast.popoverParamStack.pop();
+            if (broadcast.popoverParamStack.length) {
+                popover = broadcast.popoverParamStack[broadcast.popoverParamStack.length - 1];
+            }
         }
 
-        if ('' == value || 'undefined' == typeof value) {
-            $location.search('popover', '');
-        } else {
-            $location.search('popover', popover);
-        }
+        $location.search('popover', popover);
 
         setTimeout(function () {
             angular.element(document).injector().get('$rootScope').$apply();
         }, 1);
+    },
+
+    /**
+     * Resets the popover param stack ensuring when a popover is closed, no new popover will
+     * be loaded.
+     */
+    resetPopoverStack: function () {
+        broadcast.popoverParamStack = [];
     },
 
     /**

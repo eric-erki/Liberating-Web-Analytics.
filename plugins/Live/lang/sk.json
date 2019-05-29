@@ -7,7 +7,6 @@
         "LastHours": "Posledných %s hodín",
         "LastMinutes": "Posledných %s minút",
         "LastVisit": "Posledná návšteva",
-        "LinkVisitorLog": "Zobraziť podrobný záznam návštevníkov",
         "LoadMoreVisits": "Načítať viac návštev",
         "NbVisitor": "1 návštevník",
         "NbVisitors": "%s návštevníkov",
@@ -15,8 +14,9 @@
         "PreviousVisitor": "Predchádzajúci návštevník",
         "RealTimeVisitorCount": "Sledovanie návštev v reálnom čase",
         "Referrer_URL": "Referenčné URL",
+        "ShowMap": "zobraziť mapu",
         "SimpleRealTimeWidget_Message": "%1$s a %2$s v posledných %3$s",
-        "VisitorLog": "Záznam návštevníka",
-        "VisitorsInRealTime": "Návštevníci v reálnom čase"
+        "VisitedPages": "Navštívené stránky",
+        "VisitorProfile": "Profil užívateľa"
     }
 }

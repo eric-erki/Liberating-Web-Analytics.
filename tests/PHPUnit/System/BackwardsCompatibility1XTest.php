@@ -97,7 +97,11 @@ class BackwardsCompatibility1XTest extends SystemTestCase
             'otherRequestParameters' => array(
                 // when changing this, might also need to change the same line in OneVisitorTwoVisitsTest.php
                 'hideColumns' => 'nb_users,sum_bandwidth,nb_hits_with_bandwidth,min_bandwidth,max_bandwidth',
-            )
+            ),
+            'xmlFieldsToRemove' => [
+                'entry_sum_visit_length',
+                'sum_visit_length',
+            ],
         );
 
         /**
@@ -119,6 +123,9 @@ class BackwardsCompatibility1XTest extends SystemTestCase
             'Actions.getPageUrls',
             'Actions.getDownloads',
             'Actions.getDownload',
+
+            // new flag dimensions
+            'UserCountry.getCountry',
         );
 
         $apiNotToCall = array(
@@ -136,12 +143,21 @@ class BackwardsCompatibility1XTest extends SystemTestCase
             'DevicesDetection.getBrand',
             'DevicesDetection.getModel',
 
+            // has different output before and after
+            'PrivacyManager.getAvailableVisitColumnsToAnonymize',
+
             // we test VisitFrequency explicitly
             'VisitFrequency.get',
 
-             // the Action.getPageTitles test fails for unknown reason, so skipping it
+            // do not test as label formats have changed
+            'VisitTime.getVisitInformationPerLocalTime',
+            'VisitTime.getVisitInformationPerServerTime',
+
+             // the Actions.getPageTitles test fails for unknown reason, so skipping it
              // eg. https://travis-ci.org/piwik/piwik/jobs/24449365
-            'Action.getPageTitles',
+            'Actions.getPageTitles',
+            'Actions.getEntryPageTitles', // segment values can differ due to missing metadata in old reports
+            'Actions.getExitPageTitles',
 
             // Outlinks now tracked with URL Fragment which was not the case in 1.X
             'Actions.get',
@@ -150,7 +166,11 @@ class BackwardsCompatibility1XTest extends SystemTestCase
 
             // system settings such as enable_plugin_update_communication are enabled by default in newest version,
             // but ugpraded Piwik are not
-            'CorePluginsAdmin.getSystemSettings'
+            'CorePluginsAdmin.getSystemSettings',
+
+            // visit length changes slightly with change to previous visitor detection in #13935
+            'VisitsSummary.getSumVisitsLength',
+            'VisitsSummary.getSumVisitsLengthPretty',
         );
 
         $apiNotToCall = array_merge($apiNotToCall, $reportsToCompareSeparately);
@@ -190,6 +210,18 @@ class BackwardsCompatibility1XTest extends SystemTestCase
             array('VisitFrequency.get', array('idSite' => $idSite, 'date' => '2012-03-03,2012-12-12', 'periods' => array('month'),
                                               'testSuffix' => '_multipleOldNew', 'disableArchiving' => true)),
             array($reportsToCompareSeparately, $defaultOptions),
+        );
+    }
+
+    public function provideContainerConfig()
+    {
+        return array(
+            'Piwik\Config' => \DI\decorate(function ($previous) {
+                $general = $previous->General;
+                $general['action_title_category_delimiter'] = "/";
+                $previous->General = $general;
+                return $previous;
+            }),
         );
     }
 }

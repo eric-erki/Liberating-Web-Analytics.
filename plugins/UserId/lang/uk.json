@@ -1,5 +1,6 @@
 {
     "UserId": {
-        "UserReportTitle": "Користувачі"
+        "UserId": "Ідентифікатор",
+        "PluginDescription": "Показує користувцькі звіти"
     }
 }

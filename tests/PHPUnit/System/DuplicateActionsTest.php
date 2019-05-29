@@ -64,9 +64,21 @@ class DuplicateActionsTest extends SystemTestCase
                               'date' => $dateTime,
                               'compareAgainst' => 'OneVisitorTwoVisits',
                               'otherRequestParameters' => array(
-                                   'hideColumns' => OneVisitorTwoVisitsTest::getValueForHideColumns(),
+                                   'hideColumns' => OneVisitorTwoVisits::getValueForHideColumns(),
                               )
             ))
+        );
+    }
+
+    public function provideContainerConfig()
+    {
+        return array(
+            'Piwik\Config' => \DI\decorate(function ($previous) {
+                $general = $previous->General;
+                $general['action_title_category_delimiter'] = "/";
+                $previous->General = $general;
+                return $previous;
+            }),
         );
     }
 }

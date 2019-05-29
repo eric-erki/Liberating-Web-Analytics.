@@ -47,7 +47,7 @@ class Menu
      *
      * Example:
      * ```
-     * $menu->addItem('UI Framework', '', $this->urlForDefaultAction(), $orderId = 30);
+     * $menu->addItem('MyPlugin_MyPlugin', '', $this->urlForDefaultAction(), $orderId = 30);
      * // will add a menu item that leads to the default action of the plugin controller when a user clicks on it.
      * // The default action is usually the `index` action - meaning the `index()` method the controller -
      * // but the default action can be customized within a controller
@@ -182,7 +182,7 @@ class Menu
      * @param bool $websiteId
      * @param bool $defaultPeriod
      * @param bool $defaultDate
-     * @return string eg '&idSite=1&period=week&date=today'
+     * @return array eg ['idSite' => 1, 'period' => 'day', 'date' => '2012-02-03']
      * @throws \Exception in case a website was not specified and a default website id could not be found
      */
     public function urlForDefaultUserParams($websiteId = false, $defaultPeriod = false, $defaultDate = false)

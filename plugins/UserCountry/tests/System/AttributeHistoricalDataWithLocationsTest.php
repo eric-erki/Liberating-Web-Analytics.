@@ -20,7 +20,7 @@ use Symfony\Component\Console\Tester\CommandTester;
 
 /**
  * Class AttributeHistoricalDataWithLocationsTest
- * @package Piwik\Plugins\UserCountry\Test\Integration
+ * @package Piwik\Plugins\UserCountry\tests\Integration
  *
  * @group UserCountry
  * @group AttributeHistoricalDataWithLocations
@@ -58,7 +58,7 @@ class AttributeHistoricalDataWithLocationsTest extends IntegrationTestCase
             Db::query($sql);
         }
 
-        self::$fixture->setLocationProvider('GeoIPCity.dat');
+        self::$fixture->setLocationProvider('GeoIP2-City.mmdb');
     }
 
     /**
@@ -82,7 +82,7 @@ class AttributeHistoricalDataWithLocationsTest extends IntegrationTestCase
     public function testExecute_ShouldReturnEmptyWorkingProcessLogs_IfThereIsNoData()
     {
         $this->assertRegExp(
-            '/Re-attribution for date range: 2014-06-01 to 2014-06-06. 0 visits to process with provider "geoip_php"./',
+            '/Re-attribution for date range: 2014-06-01 to 2014-06-06. 0 visits to process with provider "geoip2php"./',
             $this->executeCommand('2014-06-01,2014-06-06')
         );
     }
@@ -92,7 +92,7 @@ class AttributeHistoricalDataWithLocationsTest extends IntegrationTestCase
         $result = $this->executeCommand('2010-01-03,2010-06-03');
 
         $this->assertContains(
-            'Re-attribution for date range: 2010-01-03 to 2010-06-03. 35 visits to process with provider "geoip_php".',
+            'Re-attribution for date range: 2010-01-03 to 2010-06-03. 35 visits to process with provider "geoip2php".',
             $result
         );
 
@@ -101,7 +101,8 @@ class AttributeHistoricalDataWithLocationsTest extends IntegrationTestCase
         $queryParams = array(
             'idSite'  => self::$fixture->idSite,
             'date'    => self::$fixture->dateTime,
-            'period'  => 'month'
+            'period'  => 'month',
+            'hideColumns' => 'sum_visit_length' // for unknown reasons this field is different in MySQLI only for this system test
         );
 
         // we need to manually reload the translations since they get reset for some reason in IntegrationTestCase::tearDown();

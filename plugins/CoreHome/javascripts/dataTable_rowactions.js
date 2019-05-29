@@ -59,8 +59,7 @@ DataTable_RowActions_Registry.register({
 
     name: 'RowEvolution',
 
-    dataTableIcon: 'plugins/Morpheus/images/row_evolution.png',
-    dataTableIconHover: 'plugins/Morpheus/images/row_evolution_hover.png',
+    dataTableIcon: 'icon-evolution',
 
     order: 50,
 
@@ -79,7 +78,7 @@ DataTable_RowActions_Registry.register({
             // we look for the data table instance in the dom
             var report = param.split(':')[0];
             var div = $(require('piwik/UI').DataTable.getDataTableByReport(report));
-            if (div.size() > 0 && div.data('uiControlObject')) {
+            if (div.length && div.data('uiControlObject')) {
                 dataTable = div.data('uiControlObject');
                 if (typeof dataTable.rowEvolutionActionInstance != 'undefined') {
                     return dataTable.rowEvolutionActionInstance;
@@ -98,14 +97,11 @@ DataTable_RowActions_Registry.register({
         return (
             typeof dataTableParams.disable_row_evolution == 'undefined'
                 || dataTableParams.disable_row_evolution == "0"
-            ) && (
-            typeof dataTableParams.flat == 'undefined'
-                || dataTableParams.flat == "0"
             );
     },
 
     isAvailableOnRow: function (dataTableParams, tr) {
-        return true;
+        return !tr.hasClass('totalsRow');
     }
 
 });
@@ -184,7 +180,7 @@ DataTable_RowAction.prototype.trigger = function (tr, e, subTableLabel) {
             // .prev(.levelX) does not work for some reason => do it "by hand"
             var findLevel = 'level' + (level - 1);
             var ptr = tr;
-            while ((ptr = ptr.prev()).size() > 0) {
+            while ((ptr = ptr.prev()).length) {
                 if (!ptr.hasClass(findLevel) || ptr.hasClass('nodata')) {
                     continue;
                 }
@@ -288,9 +284,20 @@ DataTable_RowActions_RowEvolution.prototype.performAction = function (label, tr,
         label = this.multiEvolutionRows.join(',');
     }
 
+    $.each(this.dataTable.param, function (index, value) {
+        // we automatically add fields like idDimension, idGoal etc.
+        if (index !== 'idSite' && index.indexOf('id') === 0 && $.isNumeric(value)) {
+            extraParams[index] = value;
+        }
+    });
+
     // check if abandonedCarts is in the dataTable params and if so, propagate to row evolution request
     if (this.dataTable.param.abandonedCarts !== undefined) {
         extraParams['abandonedCarts'] = this.dataTable.param.abandonedCarts;
+    }
+
+    if (this.dataTable.param.flat !== undefined) {
+        extraParams['flat'] = this.dataTable.param.flat;
     }
 
     var apiMethod = this.dataTable.param.module + '.' + this.dataTable.param.action;
@@ -353,7 +360,7 @@ DataTable_RowActions_RowEvolution.prototype.showRowEvolution = function (apiMeth
 
         // use the popover title returned from the server
         var title = box.find('div.popover-title');
-        if (title.size() > 0) {
+        if (title.length) {
             Piwik_Popover.setTitle(title.html());
             title.remove();
         }
@@ -367,7 +374,7 @@ DataTable_RowActions_RowEvolution.prototype.showRowEvolution = function (apiMeth
             // remember label for multi row evolution
             box.find('.rowevolution-startmulti').click(function () {
                 Piwik_Popover.onClose(false); // unbind listener that resets multiEvolutionRows
-                Piwik_Popover.close();
+                broadcast.propagateNewPopoverParameter(false);
                 return false;
             });
         } else {
@@ -407,11 +414,18 @@ DataTable_RowActions_RowEvolution.prototype.showRowEvolution = function (apiMeth
         }
     }
 
+    if (self.dataTable && self.dataTable.jsViewDataTable === 'tableGoals') {
+        // remove idGoal param, when it's set for goal visualizations
+        if (extraParams['idGoal']) {
+            delete(extraParams['idGoal']);
+        }
+    }
+
     $.extend(requestParams, extraParams);
 
     var ajaxRequest = new ajaxHelper();
     ajaxRequest.addParams(requestParams, 'get');
     ajaxRequest.setCallback(callback);
     ajaxRequest.setFormat('html');
-    ajaxRequest.send(false);
+    ajaxRequest.send();
 };

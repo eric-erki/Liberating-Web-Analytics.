@@ -88,13 +88,13 @@ abstract class ControllerAdmin extends Controller
 
     private static function notifyAnyInvalidPlugin()
     {
-        $missingPlugins = \Piwik\Plugin\Manager::getInstance()->getMissingPlugins();
-
-        if (empty($missingPlugins)) {
+        if (!Piwik::hasUserSuperUserAccess()) {
             return;
         }
 
-        if (!Piwik::hasUserSuperUserAccess()) {
+        $missingPlugins = \Piwik\Plugin\Manager::getInstance()->getMissingPlugins();
+
+        if (empty($missingPlugins)) {
             return;
         }
 
@@ -123,13 +123,15 @@ abstract class ControllerAdmin extends Controller
      * using the supplied view.
      *
      * @param View $view
-     * @api
+     * @param string $viewType If 'admin', the admin variables are set as well as basic ones.
      */
-    protected function setBasicVariablesView($view)
+    protected function setBasicVariablesViewAs($view, $viewType = 'admin')
     {
-        parent::setBasicVariablesView($view);
+        $this->setBasicVariablesNoneAdminView($view);
 
-        self::setBasicVariablesAdminView($view);
+        if ($viewType == 'admin') {
+            self::setBasicVariablesAdminView($view);
+        }
     }
 
     private static function notifyIfURLIsNotSecure()
@@ -156,7 +158,7 @@ abstract class ControllerAdmin extends Controller
         $message .= " ";
 
         $message .= Piwik::translate('General_ReadThisToLearnMore',
-            array('<a rel="noreferrer" target="_blank" href="https://piwik.org/faq/how-to/faq_91/">', '</a>')
+            array('<a rel="noreferrer noopener" target="_blank" href="https://matomo.org/faq/how-to/faq_91/">', '</a>')
           );
 
         $notification = new Notification($message);
@@ -190,10 +192,10 @@ abstract class ControllerAdmin extends Controller
         if (empty($isEacceleratorUsed)) {
             return;
         }
-        $message = sprintf("You are using the PHP accelerator & optimizer eAccelerator which is known to be not compatible with Piwik.
-            We have disabled eAccelerator, which might affect the performance of Piwik.
+        $message = sprintf("You are using the PHP accelerator & optimizer eAccelerator which is known to be not compatible with Matomo.
+            We have disabled eAccelerator, which might affect the performance of Matomo.
             Read the %srelated ticket%s for more information and how to fix this problem.",
-            '<a rel="noreferrer" target="_blank" href="https://github.com/piwik/piwik/issues/4439">', '</a>');
+            '<a rel="noreferrer noopener" target="_blank" href="https://github.com/matomo-org/matomo/issues/4439">', '</a>');
 
         $notification = new Notification($message);
         $notification->context = Notification::CONTEXT_WARNING;
@@ -207,7 +209,7 @@ abstract class ControllerAdmin extends Controller
      */
     private static function getNextRequiredMinimumPHP()
     {
-        return '5.5.9';
+        return '7.1';
     }
 
     private static function isUsingPhpVersionCompatibleWithNextPiwik()
@@ -240,23 +242,28 @@ abstract class ControllerAdmin extends Controller
 
     private static function notifyWhenPhpVersionIsEOL()
     {
-        return; // no supported version (5.5+) has currently ended support
-        $notifyPhpIsEOL = Piwik::hasUserSuperUserAccess() && self::isPhpVersionAtLeast55();
+        if (defined('PIWIK_TEST_MODE')) { // to avoid changing every admin UI test
+            return;
+        }
+
+        $notifyPhpIsEOL = Piwik::hasUserSuperUserAccess() && ! self::isPhpVersionAtLeast71();
         if (!$notifyPhpIsEOL) {
             return;
         }
 
+        $deprecatedMajorPhpVersion = PHP_MAJOR_VERSION . '.' . PHP_MINOR_VERSION;
         $message = Piwik::translate('General_WarningPiwikWillStopSupportingPHPVersion', array($deprecatedMajorPhpVersion, self::getNextRequiredMinimumPHP()))
-            . "\n "
+            . "<br/> "
             . Piwik::translate('General_WarningPhpVersionXIsTooOld', $deprecatedMajorPhpVersion);
 
         $notification = new Notification($message);
+        $notification->raw = true;
         $notification->title = Piwik::translate('General_Warning');
         $notification->priority = Notification::PRIORITY_LOW;
         $notification->context = Notification::CONTEXT_WARNING;
         $notification->type = Notification::TYPE_TRANSIENT;
         $notification->flags = Notification::FLAG_NO_CLEAR;
-        NotificationManager::notify('PHP54VersionCheck', $notification);
+        NotificationManager::notify('PHP71VersionCheck', $notification);
     }
 
     private static function notifyWhenDebugOnDemandIsEnabled($trackerSetting)
@@ -325,6 +332,26 @@ abstract class ControllerAdmin extends Controller
         self::notifyWhenDebugOnDemandIsEnabled('debug');
         self::notifyWhenDebugOnDemandIsEnabled('debug_on_demand');
 
+        /**
+         * Posted when rendering an admin page and notifications about any warnings or errors should be triggered.
+         * You can use it for example when you have a plugin that needs to be configured in order to work and the
+         * plugin has not been configured yet. It can be also used to cancel / remove other notifications by calling 
+         * eg `Notification\Manager::cancel($notificationId)`.
+         *
+         * **Example**
+         *
+         *     public function onTriggerAdminNotifications(Piwik\Widget\WidgetsList $list)
+         *     {
+         *         if ($pluginFooIsNotConfigured) {
+         *              $notification = new Notification('The plugin foo has not been configured yet');
+         *              $notification->context = Notification::CONTEXT_WARNING;
+         *              Notification\Manager::notify('fooNotConfigured', $notification);
+         *         }
+         *     }
+         *
+         */
+        Piwik::postEvent('Controller.triggerAdminNotifications');
+
         $view->adminMenu = MenuAdmin::getInstance()->getMenu();
 
         $notifications = $view->notifications;
@@ -342,11 +369,11 @@ abstract class ControllerAdmin extends Controller
 
     protected static function getPiwikVersion()
     {
-        return "Piwik " . Version::VERSION;
+        return "Matomo " . Version::VERSION;
     }
 
-    private static function isPhpVersionAtLeast55()
+    private static function isPhpVersionAtLeast71()
     {
-        return version_compare(PHP_VERSION, '5.5', '>=');
+        return version_compare(PHP_VERSION, '7.1', '>=');
     }
 }

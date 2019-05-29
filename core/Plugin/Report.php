@@ -10,16 +10,13 @@ namespace Piwik\Plugin;
 
 use Piwik\API\Proxy;
 use Piwik\API\Request;
-use Piwik\Cache;
 use Piwik\Columns\Dimension;
 use Piwik\Common;
 use Piwik\DataTable;
 use Piwik\DataTable\Filter\Sort;
 use Piwik\Metrics;
-use Piwik\Cache as PiwikCache;
 use Piwik\Piwik;
 use Piwik\Plugins\CoreVisualizations\Visualizations\HtmlTable;
-use Piwik\Plugins\CoreVisualizations\Visualizations\JqplotGraph\Evolution;
 use Piwik\ViewDataTable\Factory as ViewDataTableFactory;
 use Exception;
 use Piwik\Widget\WidgetsList;
@@ -118,6 +115,14 @@ class Report
      * @api
      */
     protected $hasGoalMetrics = false;
+
+    /**
+     * Set this property to false in case your report can't/shouldn't be flattened.
+     * In this case, flattener won't be applied even if parameter is provided in a request
+     * @var bool
+     * @api
+     */
+    protected $supportsFlatten = true;
 
     /**
      * Set it to boolean `true` if your report always returns a constant count of rows, for instance always 24 rows
@@ -299,7 +304,7 @@ class Report
         $apiProxy = Proxy::getInstance();
 
         if (!$apiProxy->isExistingApiAction($module, $action)) {
-            throw new Exception("Invalid action name '$module' for '$action' plugin.");
+            throw new Exception("Invalid action name '$action' for '$module' plugin.");
         }
 
         $apiAction = $apiProxy->buildApiActionName($module, $action);
@@ -307,6 +312,26 @@ class Report
         $view = ViewDataTableFactory::build($viewDataTable, $apiAction, $module . '.' . $action, $fixed);
 
         return $view->render();
+    }
+
+    /**
+     *
+     * Processing a uniqueId for each report, can be used by UIs as a key to match a given report
+     * @return string
+     */
+    public function getId()
+    {
+        $params = $this->getParameters();
+
+        $paramsKey = $this->getModule() . '.' . $this->getAction();
+
+        if (!empty($params)) {
+            foreach ($params as $key => $value) {
+                $paramsKey .= '_' . $key . '--' . $value;
+            }
+        }
+
+        return $paramsKey;
     }
 
     /**
@@ -382,6 +407,7 @@ class Report
         if (empty($restrictToColumns)) {
             $restrictToColumns = array_merge($allMetrics, array_keys($this->getProcessedMetrics()));
         }
+        $restrictToColumns = array_unique($restrictToColumns);
 
         $processedMetricsById = $this->getProcessedMetricsById();
         $metricsSet = array_flip($allMetrics);
@@ -429,8 +455,22 @@ class Report
     }
 
     /**
+     * Use this method to register metrics to process report totals.
+     *
+     * When a metric is registered, it will process the report total values and as a result show percentage values
+     * in the HTML Table reporting visualization.
+     *
+     * @return string[]  metricId => metricColumn, if the report has only column names and no IDs, it should return
+     *                   metricColumn => metricColumn, eg array('13' => 'nb_pageviews') or array('mymetric' => 'mymetric')
+     */
+    public function getMetricNamesToProcessReportTotals()
+    {
+        return array();
+    }
+
+    /**
      * Returns an array of metric documentations and their corresponding translations. Eg
-     * `array('nb_visits' => 'If a visitor comes to your website for the first time or if he visits a page more than 30 minutes after...')`.
+     * `array('nb_visits' => 'If a visitor comes to your website for the first time or if they visit a page more than 30 minutes after...')`.
      * By default the given {@link $metrics} are used and their corresponding translations are looked up automatically.
      * If there is a metric documentation not found, you should add the default metric documentation translation for
      * this metric using the {@hook Metrics.getDefaultMetricDocumentationTranslations} event. If you want to overwrite
@@ -445,8 +485,18 @@ class Report
         $documentation = array();
 
         foreach ($this->metrics as $metric) {
-            if (!empty($translations[$metric])) {
+            if (is_string($metric) && !empty($translations[$metric])) {
                 $documentation[$metric] = $translations[$metric];
+            } elseif ($metric instanceof Metric) {
+                $name = $metric->getName();
+                $metricDocs = $metric->getDocumentation();
+                if (empty($metricDocs)) {
+                    $metricDocs = @$translations[$name];
+                }
+
+                if (!empty($metricDocs)) {
+                    $documentation[$name] = $metricDocs;
+                }
             }
         }
 
@@ -454,7 +504,7 @@ class Report
         foreach ($processedMetrics as $processedMetric) {
             if (is_string($processedMetric) && !empty($translations[$processedMetric])) {
                 $documentation[$processedMetric] = $translations[$processedMetric];
-            } elseif ($processedMetric instanceof ProcessedMetric) {
+            } elseif ($processedMetric instanceof Metric) {
                 $name = $processedMetric->getName();
                 $metricDocs = $processedMetric->getDocumentation();
                 if (empty($metricDocs)) {
@@ -462,7 +512,7 @@ class Report
                 }
 
                 if (!empty($metricDocs)) {
-                    $documentation[$processedMetric->getName()] = $metricDocs;
+                    $documentation[$name] = $metricDocs;
                 }
             }
         }
@@ -477,6 +527,15 @@ class Report
     public function hasGoalMetrics()
     {
         return $this->hasGoalMetrics;
+    }
+
+    /**
+     * @return bool
+     * @ignore
+     */
+    public function supportsFlatten()
+    {
+        return $this->supportsFlatten;
     }
 
     /**
@@ -545,6 +604,12 @@ class Report
             $report['isSubtableReport'] = $this->isSubtableReport;
         }
 
+        $dimensions = $this->getDimensions();
+
+        if (count($dimensions) > 1) {
+            $report['dimensions'] = $dimensions;
+        }
+
         $report['metrics']              = $this->getMetrics();
         $report['metricsDocumentation'] = $this->getMetricsDocumentation();
         $report['processedMetrics']     = $this->getProcessedMetrics();
@@ -594,6 +659,30 @@ class Report
         }
 
         return Sort::ORDER_ASC;
+    }
+
+    /**
+     * Allows to define a callback that will be used to determine the secondary column to sort by
+     *
+     * ```
+     * public function getSecondarySortColumnCallback()
+     * {
+     *     return function ($primaryColumn) {
+     *         switch ($primaryColumn) {
+     *             case Metrics::NB_CLICKS:
+     *                 return Metrics::NB_IMPRESSIONS;
+     *             case 'label':
+     *             default:
+     *                 return Metrics::NB_CLICKS;
+     *         }
+     *     };
+     * }
+     * ```
+     * @return null|callable
+     */
+    public function getSecondarySortColumnCallback()
+    {
+        return null;
     }
 
     /**
@@ -673,6 +762,34 @@ class Report
     }
 
     /**
+     * Get dimensions used for current report and its subreports
+     *
+     * @return array [dimensionId => dimensionName]
+     * @ignore
+     */
+    public function getDimensions()
+    {
+        $dimensions = [];
+
+        if (!empty($this->getDimension())) {
+            $dimensionId = str_replace('.', '_', $this->getDimension()->getId());
+            $dimensions[$dimensionId] = $this->getDimension()->getName();
+        }
+
+        if (!empty($this->getSubtableDimension())) {
+            $subDimensionId = str_replace('.', '_', $this->getSubtableDimension()->getId());
+            $dimensions[$subDimensionId] = $this->getSubtableDimension()->getName();
+        }
+
+        if (!empty($this->getThirdLeveltableDimension())) {
+            $subDimensionId = str_replace('.', '_', $this->getThirdLeveltableDimension()->getId());
+            $dimensions[$subDimensionId] = $this->getThirdLeveltableDimension()->getName();
+        }
+
+        return $dimensions;
+    }
+
+    /**
      * Returns the order of the report
      * @return int
      * @ignore
@@ -713,6 +830,36 @@ class Report
         }
 
         return $subtableReport->getDimension();
+    }
+
+    /**
+     * Returns the Dimension instance of the subtable report of this report's subtable report.
+     *
+     * @return Dimension|null The subtable report's dimension or null if there is no subtable report or
+     *                        no dimension for the subtable report.
+     * @api
+     */
+    public function getThirdLeveltableDimension()
+    {
+        if (empty($this->actionToLoadSubTables)) {
+            return null;
+        }
+
+        list($subtableReportModule, $subtableReportAction) = $this->getSubtableApiMethod();
+
+        $subtableReport = ReportsProvider::factory($subtableReportModule, $subtableReportAction);
+        if (empty($subtableReport) || empty($subtableReport->actionToLoadSubTables)) {
+            return null;
+        }
+
+        list($subSubtableReportModule, $subSubtableReportAction) = $subtableReport->getSubtableApiMethod();
+
+        $subSubtableReport = ReportsProvider::factory($subSubtableReportModule, $subSubtableReportAction);
+        if (empty($subSubtableReport)) {
+            return null;
+        }
+
+        return $subSubtableReport->getDimension();
     }
 
     /**
@@ -791,11 +938,17 @@ class Report
      */
     public static function getForDimension(Dimension $dimension)
     {
-        return ComponentFactory::getComponentIf(__CLASS__, $dimension->getModule(), function (Report $report) use ($dimension) {
-            return !$report->isSubtableReport()
+        $provider = new ReportsProvider();
+        $reports = $provider->getAllReports();
+        foreach ($reports as $report) {
+            if (!$report->isSubtableReport()
                 && $report->getDimension()
-                && $report->getDimension()->getId() == $dimension->getId();
-        });
+                && $report->getDimension()->getId() == $dimension->getId()
+            ) {
+                return $report;
+            }
+        }
+        return null;
     }
 
     /**
@@ -809,7 +962,7 @@ class Report
 
         $result = array();
         foreach ($processedMetrics as $processedMetric) {
-            if ($processedMetric instanceof ProcessedMetric) { // instanceof check for backwards compatibility
+            if ($processedMetric instanceof ProcessedMetric || $processedMetric instanceof ArchivedMetric) { // instanceof check for backwards compatibility
                 $result[$processedMetric->getName()] = $processedMetric;
             }
         }
@@ -861,6 +1014,42 @@ class Report
      */
     public static function getProcessedMetricsForTable(DataTable $dataTable, Report $report = null)
     {
-        return self::getMetricsForTable($dataTable, $report, 'Piwik\\Plugin\\ProcessedMetric');
+        /** @var ProcessedMetric[] $metrics */
+        $metrics = self::getMetricsForTable($dataTable, $report, 'Piwik\\Plugin\\ProcessedMetric');
+
+        // sort metrics w/ dependent metrics calculated before the metrics that depend on them
+        $result = [];
+        self::processedMetricDfs($metrics, function ($metricName) use (&$result, $metrics) {
+            $result[$metricName] = $metrics[$metricName];
+        });
+        return $result;
+    }
+
+    /**
+     * @param ProcessedMetric[] $metrics
+     * @param $callback
+     * @param array $visited
+     */
+    private static function processedMetricDfs($metrics, $callback, &$visited = [], $toVisit = null)
+    {
+        $toVisit = $toVisit === null ? $metrics : $toVisit;
+        foreach ($toVisit as $name => $metric) {
+            if (!empty($visited[$name])) {
+                continue;
+            }
+
+            $visited[$name] = true;
+
+            $dependentMetrics = [];
+            foreach ($metric->getDependentMetrics() as $metricName) {
+                if (!empty($metrics[$metricName])) {
+                    $dependentMetrics[$metricName] = $metrics[$metricName];
+                }
+            }
+
+            self::processedMetricDfs($metrics, $callback, $visited, $dependentMetrics);
+
+            $callback($name);
+        }
     }
 }

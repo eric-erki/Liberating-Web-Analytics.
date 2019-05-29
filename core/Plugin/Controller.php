@@ -14,8 +14,7 @@ use Piwik\API\Proxy;
 use Piwik\API\Request;
 use Piwik\Common;
 use Piwik\Config as PiwikConfig;
-use Piwik\Config;
-use Piwik\DataTable\Filter\CalculateEvolutionFilter;
+use Piwik\Container\StaticContainer;
 use Piwik\Date;
 use Piwik\Exception\NoPrivilegesException;
 use Piwik\Exception\NoWebsiteFoundException;
@@ -24,7 +23,6 @@ use Piwik\Menu\MenuAdmin;
 use Piwik\Menu\MenuTop;
 use Piwik\NoAccessException;
 use Piwik\Notification\Manager as NotificationManager;
-use Piwik\NumberFormatter;
 use Piwik\Period\Month;
 use Piwik\Period;
 use Piwik\Period\PeriodValidator;
@@ -33,7 +31,6 @@ use Piwik\Piwik;
 use Piwik\Plugins\CoreAdminHome\CustomLogo;
 use Piwik\Plugins\CoreVisualizations\Visualizations\JqplotGraph\Evolution;
 use Piwik\Plugins\LanguagesManager\LanguagesManager;
-use Piwik\Plugin\ReportsProvider;
 use Piwik\SettingsPiwik;
 use Piwik\Site;
 use Piwik\Url;
@@ -272,7 +269,21 @@ abstract class Controller
      * @since 2.5.0
      * @api
      */
-    protected function renderTemplate($template, array $variables = array())
+    protected function renderTemplate($template, array $variables = [])
+    {
+        return $this->renderTemplateAs($template, $variables);
+    }
+
+    /**
+     * @see {self::renderTemplate()}
+     *
+     * @param $template
+     * @param array $variables
+     * @param string|null $viewType 'basic' or 'admin'. If null, determined based on the controller instance type.
+     * @return string
+     * @throws Exception
+     */
+    protected function renderTemplateAs($template, array $variables = array(), $viewType = null)
     {
         if (false === strpos($template, '@') || false === strpos($template, '/')) {
             $template = '@' . $this->pluginName . '/' . $template;
@@ -280,15 +291,21 @@ abstract class Controller
 
         $view = new View($template);
 
+        $this->checkViewType($viewType);
+
+        if (empty($viewType)) {
+            $viewType = $this instanceof ControllerAdmin ? 'admin' : 'basic';
+        }
+
         // alternatively we could check whether the templates extends either admin.twig or dashboard.twig and based on
         // that call the correct method. This will be needed once we unify Controller and ControllerAdmin see
         // https://github.com/piwik/piwik/issues/6151
-        if ($this instanceof ControllerAdmin) {
-            $this->setBasicVariablesView($view);
+        if ($this instanceof ControllerAdmin && $viewType == 'admin') {
+            $this->setBasicVariablesViewAs($view, $viewType);
         } elseif (empty($this->site) || empty($this->idSite)) {
-            $this->setBasicVariablesView($view);
+            $this->setBasicVariablesViewAs($view, $viewType);
         } else {
-            $this->setGeneralVariablesView($view);
+            $this->setGeneralVariablesViewAs($view, $viewType);
         }
 
         foreach ($variables as $key => $value) {
@@ -575,11 +592,23 @@ abstract class Controller
      * Will exit on error.
      *
      * @param View $view
+     * @param string|null $viewType 'basic' or 'admin'. If null, set based on the type of controller.
      * @return void
      * @api
      */
     protected function setGeneralVariablesView($view)
     {
+        $this->setGeneralVariablesViewAs($view, $viewType = null);
+    }
+
+    protected function setGeneralVariablesViewAs($view, $viewType)
+    {
+        $this->checkViewType($viewType);
+
+        if ($viewType === null) {
+            $viewType = $this instanceof ControllerAdmin ? 'admin' : 'basic';
+        }
+
         $view->idSite = $this->idSite;
         $this->checkSitePermission();
         $this->setPeriodVariablesView($view);
@@ -630,15 +659,19 @@ abstract class Controller
 
         $view->date = $this->strDate;
         $view->prettyDate = self::getCalendarPrettyDate($period);
+        // prettyDateLong is not used by core, leaving in case plugins may be using it
         $view->prettyDateLong = $period->getLocalizedLongString();
         $view->rawDate = $rawDate;
         $view->startDate = $dateStart;
         $view->endDate = $dateEnd;
 
+        $timezoneOffsetInSeconds = Date::getUtcOffset($siteTimezone);
+        $view->timezoneOffset = $timezoneOffsetInSeconds;
+
         $language = LanguagesManager::getLanguageForSession();
         $view->language = !empty($language) ? $language : LanguagesManager::getLanguageCodeForCurrentUser();
 
-        $this->setBasicVariablesView($view);
+        $this->setBasicVariablesViewAs($view, $viewType);
 
         $view->topMenu = MenuTop::getInstance()->getMenu();
         $view->adminMenu = MenuAdmin::getInstance()->getMenu();
@@ -664,6 +697,56 @@ abstract class Controller
     }
 
     /**
+     * Needed when a controller extends ControllerAdmin but you don't want to call the controller admin basic variables
+     * view. Solves a problem when a controller has regular controller and admin controller views.
+     * @param View $view
+     */
+    protected function setBasicVariablesNoneAdminView($view)
+    {
+        $view->clientSideConfig = PiwikConfig::getInstance()->getClientSideOptions();
+        $view->isSuperUser = Access::getInstance()->hasSuperUserAccess();
+        $view->hasSomeAdminAccess = Piwik::isUserHasSomeAdminAccess();
+        $view->hasSomeViewAccess  = Piwik::isUserHasSomeViewAccess();
+        $view->isUserIsAnonymous  = Piwik::isUserIsAnonymous();
+        $view->hasSuperUserAccess = Piwik::hasUserSuperUserAccess();
+
+        if (!Piwik::isUserIsAnonymous()) {
+            $view->emailSuperUser = implode(',', Piwik::getAllSuperUserAccessEmailAddresses());
+        }
+
+        $capabilities = array();
+        if ($this->idSite && $this->site) {
+            $capabilityProvider = StaticContainer::get(Access\CapabilitiesProvider::class);
+            foreach ($capabilityProvider->getAllCapabilities() as $capability) {
+                if (Piwik::isUserHasCapability($this->idSite, $capability->getId())) {
+                    $capabilities[] = $capability->getId();
+                }
+            }
+        }
+
+        $view->userCapabilities = $capabilities;
+
+        $this->addCustomLogoInfo($view);
+
+        $view->logoHeader = \Piwik\Plugins\API\API::getInstance()->getHeaderLogoUrl();
+        $view->logoLarge = \Piwik\Plugins\API\API::getInstance()->getLogoUrl();
+        $view->logoSVG = \Piwik\Plugins\API\API::getInstance()->getSVGLogoUrl();
+        $view->hasSVGLogo = \Piwik\Plugins\API\API::getInstance()->hasSVGLogo();
+        $view->superUserEmails = implode(',', Piwik::getAllSuperUserAccessEmailAddresses());
+        $view->themeStyles = ThemeStyles::get();
+
+        $general = PiwikConfig::getInstance()->General;
+        $view->enableFrames = $general['enable_framed_pages']
+            || (isset($general['enable_framed_logins']) && $general['enable_framed_logins']);
+        $embeddedAsIframe = (Common::getRequestVar('module', '', 'string') == 'Widgetize');
+        if (!$view->enableFrames && !$embeddedAsIframe) {
+            $view->setXFrameOptions('sameorigin');
+        }
+
+        self::setHostValidationVariablesView($view);
+    }
+
+    /**
      * Assigns a set of generally useful variables to a {@link Piwik\View} instance.
      *
      * The following variables assigned:
@@ -682,37 +765,19 @@ abstract class Controller
      * Also calls {@link setHostValidationVariablesView()}.
      *
      * @param View $view
+     * @param string $viewType 'basic' or 'admin'. Used by ControllerAdmin.
      * @api
      */
     protected function setBasicVariablesView($view)
     {
-        $view->clientSideConfig = PiwikConfig::getInstance()->getClientSideOptions();
-        $view->isSuperUser = Access::getInstance()->hasSuperUserAccess();
-        $view->hasSomeAdminAccess = Piwik::isUserHasSomeAdminAccess();
-        $view->hasSomeViewAccess  = Piwik::isUserHasSomeViewAccess();
-        $view->isUserIsAnonymous  = Piwik::isUserIsAnonymous();
-        $view->hasSuperUserAccess = Piwik::hasUserSuperUserAccess();
+        $this->setBasicVariablesViewAs($view);
+    }
 
-        if (!Piwik::isUserIsAnonymous()) {
-            $view->emailSuperUser = implode(',', Piwik::getAllSuperUserAccessEmailAddresses());
-        }
+    protected function setBasicVariablesViewAs($view, $viewType = null)
+    {
+        $this->checkViewType($viewType); // param is not used here, but the check can be useful for a developer
 
-        $this->addCustomLogoInfo($view);
-
-        $view->logoHeader = \Piwik\Plugins\API\API::getInstance()->getHeaderLogoUrl();
-        $view->logoLarge = \Piwik\Plugins\API\API::getInstance()->getLogoUrl();
-        $view->logoSVG = \Piwik\Plugins\API\API::getInstance()->getSVGLogoUrl();
-        $view->hasSVGLogo = \Piwik\Plugins\API\API::getInstance()->hasSVGLogo();
-        $view->superUserEmails = implode(',', Piwik::getAllSuperUserAccessEmailAddresses());
-
-        $general = PiwikConfig::getInstance()->General;
-        $view->enableFrames = $general['enable_framed_pages']
-                || (isset($general['enable_framed_logins']) && $general['enable_framed_logins']);
-        if (!$view->enableFrames) {
-            $view->setXFrameOptions('sameorigin');
-        }
-
-        self::setHostValidationVariablesView($view);
+        $this->setBasicVariablesNoneAdminView($view);
     }
 
     protected function addCustomLogoInfo($view)
@@ -796,7 +861,7 @@ abstract class Controller
                                                                                        '</a>'
                                                                                   ));
             }
-            $view->invalidHostMessageHowToFix = '<p><b>How do I fix this problem and how do I login again?</b><br/> The Piwik Super User can manually edit the file piwik/config/config.ini.php
+            $view->invalidHostMessageHowToFix = '<p><b>How do I fix this problem and how do I login again?</b><br/> The Matomo Super User can manually edit the file piwik/config/config.ini.php
 						and add the following lines: <pre>[General]' . "\n" . 'trusted_hosts[] = "' . $invalidHost . '"</pre>After making the change, you will be able to login again.</p>
 						<p>You may also <i>disable this security feature (not recommended)</i>. To do so edit config/config.ini.php and add:
 						<pre>[General]' . "\n" . 'enable_trusted_host_check=0</pre>';
@@ -840,6 +905,7 @@ abstract class Controller
 
         $view->period = $currentPeriod;
         $view->otherPeriods = $availablePeriods;
+        $view->enabledPeriods = self::getEnabledPeriodsInUI();
         $view->periodsNames = self::getEnabledPeriodsNames();
     }
 
@@ -867,8 +933,8 @@ abstract class Controller
 
         if (Piwik::hasUserSuperUserAccess()) {
             $siteTableName = Common::prefixTable('site');
-            $message = "Error: no website was found in this Piwik installation.
-			<br />Check the table '$siteTableName' in your database, it should contain your Piwik websites.";
+            $message = "Error: no website was found in this Matomo installation.
+			<br />Check the table '$siteTableName' in your database, it should contain your Matomo websites.";
 
             $ex = new NoWebsiteFoundException($message);
             $ex->setIsHtmlMessage();
@@ -879,7 +945,7 @@ abstract class Controller
         if (!Piwik::isUserIsAnonymous()) {
             $currentLogin = Piwik::getCurrentUserLogin();
             $emails = implode(',', Piwik::getAllSuperUserAccessEmailAddresses());
-            $errorMessage  = sprintf(Piwik::translate('CoreHome_NoPrivilegesAskPiwikAdmin'), $currentLogin, "<br/><a href='mailto:" . $emails . "?subject=Access to Piwik for user $currentLogin'>", "</a>");
+            $errorMessage  = sprintf(Piwik::translate('CoreHome_NoPrivilegesAskPiwikAdmin'), $currentLogin, "<br/><a href='mailto:" . $emails . "?subject=Access to Matomo for user $currentLogin'>", "</a>");
             $errorMessage .= "<br /><br />&nbsp;&nbsp;&nbsp;<b><a href='index.php?module=" . Piwik::getLoginPluginName() . "&amp;action=logout'>&rsaquo; " . Piwik::translate('General_Logout') . "</a></b><br />";
 
             $ex = new NoPrivilegesException($errorMessage);
@@ -957,7 +1023,7 @@ abstract class Controller
             throw new NoAccessException(Piwik::translate('General_ExceptionPrivilegeAccessWebsite', array("'view'", $this->idSite)));
         } elseif (empty($this->site) || empty($this->idSite)) {
             throw new Exception("The requested website idSite is not found in the request, or is invalid.
-				Please check that you are logged in Piwik and have permission to access the specified website.");
+				Please check that you are logged in Matomo and have permission to access the specified website.");
         }
     }
 
@@ -983,5 +1049,12 @@ abstract class Controller
         $url = sprintf($url, $moduleToRedirect, $actionToRedirect);
         $url = $url . $queryParams;
         Url::redirectToUrl($url);
+    }
+
+    private function checkViewType($viewType)
+    {
+        if ($viewType == 'admin' && !($this instanceof ControllerAdmin)) {
+            throw new Exception("'admin' view type is only allowed with ControllerAdmin class.");
+        }
     }
 }

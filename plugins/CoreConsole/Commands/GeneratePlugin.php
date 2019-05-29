@@ -47,7 +47,7 @@ class GeneratePlugin extends GeneratePluginBase
         $exampleDescription = $info['description'];
 
         if ($isTheme) {
-            $exampleFolder = PIWIK_INCLUDE_PATH . '/plugins/ExampleTheme';
+            $exampleFolder = Plugin\Manager::getPluginDirectory('ExampleTheme');
             $replace       = array(
                 'ExampleTheme'       => $pluginName,
                 $exampleDescription  => $description,
@@ -58,7 +58,7 @@ class GeneratePlugin extends GeneratePluginBase
 
         } else {
 
-            $exampleFolder = PIWIK_INCLUDE_PATH . '/plugins/ExamplePlugin';
+            $exampleFolder = Plugin\Manager::getPluginDirectory('ExamplePlugin');
             $replace       = array(
                 'ExamplePlugin'      => $pluginName,
                 $exampleDescription  => $description,
@@ -75,6 +75,9 @@ class GeneratePlugin extends GeneratePluginBase
                 '/docs',
                 '/docs/faq.md',
                 '/docs/index.md',
+                '/config',
+                '/config/config.php',
+                '/config/tracker.php'
             );
         }
 
@@ -84,13 +87,13 @@ class GeneratePlugin extends GeneratePluginBase
         if ($isTheme) {
             $this->writeSuccessMessage($output, array(
                 sprintf('Theme %s %s generated.', $pluginName, $version),
-                'If you have not done yet check out our Theming guide <comment>http://developer.piwik.org/guides/theming</comment>',
+                'If you have not done yet check out our Theming guide <comment>https://developer.matomo.org/guides/theming</comment>',
                 'Enjoy!'
             ));
         } else {
             $this->writeSuccessMessage($output, array(
                 sprintf('Plugin %s %s generated.', $pluginName, $version),
-                'Our developer guides will help you developing this plugin, check out <comment>http://developer.piwik.org/guides</comment>',
+                'Our developer guides will help you developing this plugin, check out <comment>https://developer.matomo.org/guides</comment>',
                 'To see a list of available generators execute <comment>./console list generate</comment>',
                 'Enjoy!'
             ));

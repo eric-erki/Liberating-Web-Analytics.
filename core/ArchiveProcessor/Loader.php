@@ -10,7 +10,10 @@ namespace Piwik\ArchiveProcessor;
 
 use Piwik\Archive;
 use Piwik\Cache;
+use Piwik\CacheId;
+use Piwik\Common;
 use Piwik\Config;
+use Piwik\Context;
 use Piwik\DataAccess\ArchiveSelector;
 use Piwik\Date;
 use Piwik\Period;
@@ -63,6 +66,13 @@ class Loader
 
     public function prepareArchive($pluginName)
     {
+        return Context::changeIdSite($this->params->getSite()->getId(), function () use ($pluginName) {
+            return $this->prepareArchiveImpl($pluginName);
+        });
+    }
+
+    private function prepareArchiveImpl($pluginName)
+    {
         $this->params->setRequestedPlugin($pluginName);
 
         list($idArchive, $visits, $visitsConverted) = $this->loadExistingArchiveIdFromDb();
@@ -73,7 +83,7 @@ class Loader
         list($visits, $visitsConverted) = $this->prepareCoreMetricsArchive($visits, $visitsConverted);
         list($idArchive, $visits) = $this->prepareAllPluginsArchive($visits, $visitsConverted);
 
-        if ($this->isThereSomeVisits($visits)) {
+        if ($this->isThereSomeVisits($visits) || PluginsArchiver::doesAnyPluginArchiveWithoutVisits()) {
             return $idArchive;
         }
         return false;
@@ -120,11 +130,8 @@ class Loader
             $visitsConverted = $metrics['nb_visits_converted'];
         }
 
-        if ($this->isThereSomeVisits($visits)
-            || $this->shouldArchiveForSiteEvenWhenNoVisits()
-        ) {
-            $pluginsArchiver->callAggregateAllPlugins($visits, $visitsConverted);
-        }
+        $forceArchivingWithoutVisits = !$this->isThereSomeVisits($visits) && $this->shouldArchiveForSiteEvenWhenNoVisits();
+        $pluginsArchiver->callAggregateAllPlugins($visits, $visitsConverted, $forceArchivingWithoutVisits);
 
         $idArchive = $pluginsArchiver->finalizeArchive();
 

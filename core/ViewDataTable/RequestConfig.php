@@ -8,6 +8,7 @@
  */
 
 namespace Piwik\ViewDataTable;
+use Piwik\Common;
 
 
 /**
@@ -90,6 +91,7 @@ class RequestConfig
         'filter_column',
         'filter_offset',
         'flat',
+        'totals',
         'expanded',
         'pivotBy',
         'pivotByColumn',
@@ -111,6 +113,7 @@ class RequestConfig
         'disable_generic_filters',
         'disable_queued_filters',
         'flat',
+        'totals',
         'expanded',
         'pivotBy',
         'pivotByColumn',
@@ -147,6 +150,14 @@ class RequestConfig
      * Default value: false
      */
     public $flat = false;
+
+    /**
+     * If set to true or "1", the report may calculate totals information and show percentage values for each row in
+     * relative to the total value.
+     *
+     * Default value: 0
+     */
+    public $totals = 0;
 
     /**
      * If set to true, the returned data will contain the first level results, as well as all sub-tables.
@@ -334,5 +345,25 @@ class RequestConfig
         list($module, $method) = explode('.', $this->apiMethodToRequestDataTable);
 
         return $method;
+    }
+
+    public function getRequestParam($paramName)
+    {
+        if (isset($this->request_parameters_to_modify[$paramName])) {
+            return $this->request_parameters_to_modify[$paramName];
+        }
+
+        return Common::getRequestVar($paramName, false);
+    }
+
+    /**
+     * Override this method if you want to add custom request parameters to the API request based on ViewDataTable
+     * parameters. Return in the result the list of extra parameters.
+     *
+     * @return array eg, `['mycustomparam']`
+     */
+    public function getExtraParametersToSet()
+    {
+        return [];
     }
 }

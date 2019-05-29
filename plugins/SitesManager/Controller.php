@@ -9,10 +9,12 @@
 namespace Piwik\Plugins\SitesManager;
 
 use Exception;
+use Piwik\API\Request;
 use Piwik\API\ResponseBuilder;
 use Piwik\Common;
 use Piwik\Exception\UnexpectedWebsiteFoundException;
 use Piwik\Piwik;
+use Piwik\Session;
 use Piwik\Settings\Measurable\MeasurableSettings;
 use Piwik\SettingsPiwik;
 use Piwik\Site;
@@ -100,25 +102,6 @@ class Controller extends \Piwik\Plugin\ControllerAdmin
     }
 
     /**
-     * Displays the admin UI page showing all tracking tags
-     * @return string
-     */
-    function displayJavascriptCode()
-    {
-        $idSite = Common::getRequestVar('idSite');
-        Piwik::checkUserHasViewAccess($idSite);
-        $javascriptGenerator = new TrackerCodeGenerator();
-        $jsTag = $javascriptGenerator->generate($idSite, SettingsPiwik::getPiwikUrl());
-        $site  = new Site($idSite);
-
-        return $this->renderTemplate('displayJavascriptCode', array(
-            'idSite' => $idSite,
-            'displaySiteName' => $site->getName(),
-            'jsTag' => $jsTag
-        ));
-    }
-
-    /**
      *  User will download a file called PiwikTracker.php that is the content of the actual script
      */
     function downloadPiwikTracker()
@@ -130,24 +113,40 @@ class Controller extends \Piwik\Plugin\ControllerAdmin
         return file_get_contents($path . $filename);
     }
 
+    public function ignoreNoDataMessage()
+    {
+        Piwik::checkUserHasSomeViewAccess();
+
+        $session = new Session\SessionNamespace('siteWithoutData');
+        $session->ignoreMessage = true;
+        $session->setExpirationSeconds($oneHour = 60 * 60);
+
+        $url = Url::getCurrentUrlWithoutQueryString() . Url::getCurrentQueryStringWithParametersModified(array('module' => 'CoreHome', 'action' => 'index'));
+        Url::redirectToUrl($url);
+    }
+
     public function siteWithoutData()
     {
         $javascriptGenerator = new TrackerCodeGenerator();
+        $javascriptGenerator->forceMatomoEndpoint();
         $piwikUrl = Url::getCurrentUrlWithoutFileName();
 
-        if (!$this->site) {
+        if (!$this->site && Piwik::hasUserSuperUserAccess()) {
             throw new UnexpectedWebsiteFoundException('Invalid site ' . $this->idSite);
+        } elseif (!$this->site) {
+            // redirect to login form
+            Piwik::checkUserHasViewAccess($this->idSite);
         }
 
-        return $this->renderTemplate('siteWithoutData', array(
+        return $this->renderTemplateAs('siteWithoutData', array(
             'siteName'     => $this->site->getName(),
-            'idSite' => $this->site->getId(),
-            'trackingHelp' => $this->renderTemplate('_displayJavascriptCode', array(
+            'idSite' => $this->idSite,
+            'trackingHelp' => $this->renderTemplateAs('_displayJavascriptCode', array(
                 'displaySiteName' => Common::unsanitizeInputValue($this->site->getName()),
-                'jsTag'           => $javascriptGenerator->generate($this->idSite, $piwikUrl),
+                'jsTag'           => Request::processRequest('SitesManager.getJavascriptTag', array('idSite' => $this->idSite, 'piwikUrl' => $piwikUrl)),
                 'idSite'          => $this->idSite,
                 'piwikUrl'        => $piwikUrl,
-            )),
-        ));
+            ), $viewType = 'basic'),
+        ), $viewType = 'basic');
     }
 }

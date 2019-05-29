@@ -8,15 +8,18 @@
  */
 namespace Piwik\Plugins\SitesManager;
 
+use Piwik\Access;
+use Piwik\API\Request;
 use Piwik\Common;
-use Piwik\Archive\ArchiveInvalidator;
 use Piwik\Container\StaticContainer;
-use Piwik\Db;
+use Piwik\Exception\UnexpectedWebsiteFoundException;
+use Piwik\Piwik;
+use Piwik\Plugins\CoreHome\SystemSummary;
 use Piwik\Plugins\PrivacyManager\PrivacyManager;
-use Piwik\Measurable\Settings\Storage;
 use Piwik\Settings\Storage\Backend\MeasurableSettingsTable;
 use Piwik\Tracker\Cache;
 use Piwik\Tracker\Model as TrackerModel;
+use Piwik\Session\SessionNamespace;
 
 /**
  *
@@ -28,18 +31,27 @@ class SitesManager extends \Piwik\Plugin
     const KEEP_URL_FRAGMENT_NO = 2;
 
     /**
-     * @see Piwik\Plugin::registerEvents
+     * @see \Piwik\Plugin::registerEvents
      */
     public function registerEvents()
     {
         return array(
             'AssetManager.getJavaScriptFiles'        => 'getJsFiles',
             'AssetManager.getStylesheetFiles'        => 'getStylesheetFiles',
-            'Tracker.Cache.getSiteAttributes'        => 'recordWebsiteDataInCache',
+            'Tracker.Cache.getSiteAttributes'        => array('function' => 'recordWebsiteDataInCache', 'before' => true),
+            'Tracker.setTrackerCacheGeneral'         => 'setTrackerCacheGeneral',
             'Translate.getClientSideTranslationKeys' => 'getClientSideTranslationKeys',
             'SitesManager.deleteSite.end'            => 'onSiteDeleted',
+            'System.addSystemSummaryItems'           => 'addSystemSummaryItems',
             'Request.dispatch'                       => 'redirectDashboardToWelcomePage',
         );
+    }
+
+    public function addSystemSummaryItems(&$systemSummary)
+    {
+        $websites = Request::processRequest('SitesManager.getAllSites', array('filter_limit' => '-1'));
+        $numWebsites = count($websites);
+        $systemSummary[] = new SystemSummary\Item($key = 'websites', Piwik::translate('CoreHome_SystemSummaryNWebsites', $numWebsites), $value = null, $url = array('module' => 'SitesManager', 'action' => 'index'), $icon = '', $order = 10);
     }
 
     public function redirectDashboardToWelcomePage(&$module, &$action)
@@ -59,11 +71,34 @@ class SitesManager extends \Piwik\Plugin
             return;
         }
 
-        $trackerModel = new TrackerModel();
-        if ($trackerModel->isSiteEmpty($siteId)) {
+        if (self::hasTrackedAnyTraffic($siteId)) {
+            $session = new SessionNamespace('siteWithoutData');
+            if (!empty($session->ignoreMessage)) {
+                return;
+            }
+
             $module = 'SitesManager';
             $action = 'siteWithoutData';
         }
+    }
+
+    public static function hasTrackedAnyTraffic($siteId)
+    {
+        $shouldPerformEmptySiteCheck = true;
+
+        /**
+         * Posted before checking to display the "No data has been recorded yet" message.
+         * If your Measurable should never have visits, you can use this event to make
+         * sure that message is never displayed.
+         *
+         * @param bool &$shouldPerformEmptySiteCheck Set this value to true to perform the
+         *                                           check, false if otherwise.
+         * @param int $siteId The ID of the site we would perform a check for.
+         */
+        Piwik::postEvent('SitesManager.shouldPerformEmptySiteCheck', [&$shouldPerformEmptySiteCheck, $siteId]);
+
+        $trackerModel = new TrackerModel();
+        return $shouldPerformEmptySiteCheck && $trackerModel->isSiteEmpty($siteId);
     }
 
     public function onSiteDeleted($idSite)
@@ -113,13 +148,13 @@ class SitesManager extends \Piwik\Plugin
     {
         $idSite = (int) $idSite;
 
+        $website = API::getInstance()->getSiteFromId($idSite);
         $urls = API::getInstance()->getSiteUrlsFromId($idSite);
 
         // add the 'hosts' entry in the website array
         $array['urls']  = $urls;
         $array['hosts'] = $this->getTrackerHosts($urls);
 
-        $website = API::getInstance()->getSiteFromId($idSite);
         $array['exclude_unknown_urls'] = $website['exclude_unknown_urls'];
         $array['excluded_ips'] = $this->getTrackerExcludedIps($website);
         $array['excluded_parameters'] = self::getTrackerExcludedQueryParameters($website);
@@ -130,6 +165,15 @@ class SitesManager extends \Piwik\Plugin
         $array['sitesearch_category_parameters'] = $this->getTrackerSearchCategoryParameters($website);
         $array['timezone'] = $this->getTimezoneFromWebsite($website);
         $array['ts_created'] = $website['ts_created'];
+        $array['type'] = $website['type'];
+    }
+
+    public function setTrackerCacheGeneral(&$cache)
+    {
+        Access::doAsSuperUser(function () use (&$cache) {
+            $cache['global_excluded_user_agents'] = self::filterBlankFromCommaSepList(API::getInstance()->getExcludedUserAgentsGlobal());
+            $cache['global_excluded_ips'] = self::filterBlankFromCommaSepList(API::getInstance()->getExcludedIpsGlobal());
+        });
     }
 
     /**
@@ -294,7 +338,7 @@ class SitesManager extends \Piwik\Plugin
         $translationKeys[] = "SitesManager_OnlyMatchedUrlsAllowedHelp";
         $translationKeys[] = "SitesManager_OnlyMatchedUrlsAllowedHelpExamples";
         $translationKeys[] = "SitesManager_KeepURLFragmentsLong";
-        $translationKeys[] = "SitesManager_HelpExcludedIps";
+        $translationKeys[] = "SitesManager_HelpExcludedIpAddresses";
         $translationKeys[] = "SitesManager_ListOfQueryParametersToExclude";
         $translationKeys[] = "SitesManager_PiwikWillAutomaticallyExcludeCommonSessionParameters";
         $translationKeys[] = "SitesManager_GlobalExcludedUserAgentHelp1";
@@ -317,7 +361,6 @@ class SitesManager extends \Piwik\Plugin
         $translationKeys[] = "SitesManager_CurrencySymbolWillBeUsedForGoals";
         $translationKeys[] = "SitesManager_ChangingYourTimezoneWillOnlyAffectDataForward";
         $translationKeys[] = "SitesManager_AdvancedTimezoneSupportNotFound";
-        $translationKeys[] = "SitesManager_ChooseCityInSameTimezoneAsYou";
         $translationKeys[] = "SitesManager_UTCTimeIs";
         $translationKeys[] = "SitesManager_EnableEcommerce";
         $translationKeys[] = "SitesManager_NotAnEcommerceSite";
@@ -350,5 +393,6 @@ class SitesManager extends \Piwik\Plugin
         $translationKeys[] = "General_Measurables";
         $translationKeys[] = "Goals_Ecommerce";
         $translationKeys[] = "SitesManager_NotFound";
+        $translationKeys[] = "SitesManager_DeleteSiteExplanation";
     }
 }

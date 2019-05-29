@@ -3,7 +3,7 @@ var SegmentedVisitorLog = function() {
     function getDataTableFromApiMethod(apiMethod)
     {
         var div = $(require('piwik/UI').DataTable.getDataTableByReport(apiMethod));
-        if (div.size() > 0 && div.data('uiControlObject')) {
+        if (div.length && div.data('uiControlObject')) {
             return div.data('uiControlObject');
         }
     }
@@ -96,7 +96,7 @@ var SegmentedVisitorLog = function() {
     function show(apiMethod, segment, extraParams) {
 
         // open the popover
-        var box = Piwik_Popover.showLoading('Segmented Visitor Log');
+        var box = Piwik_Popover.showLoading('Segmented Visit Log');
         box.addClass('segmentedVisitorLogPopover');
 
 
@@ -107,7 +107,7 @@ var SegmentedVisitorLog = function() {
             var title = box.find('h2[piwik-enriched-headline]');
             var defaultTitle = title.text();
 
-            if (title.size() > 0) {
+            if (title.length) {
                 title.remove();
             }
 
@@ -120,10 +120,10 @@ var SegmentedVisitorLog = function() {
         var requestParams = {
             module: 'Live',
             action: 'indexVisitorLog',
-            segment: segment,
+            segment: encodeURIComponent(segment),
             disableLink: 1,
             small: 1,
-            hideProfileLink: 1
+            enableAddNewSegment: 1,
         };
 
         $.extend(requestParams, extraParams);
@@ -132,7 +132,7 @@ var SegmentedVisitorLog = function() {
         ajaxRequest.addParams(requestParams, 'get');
         ajaxRequest.setCallback(callback);
         ajaxRequest.setFormat('html');
-        ajaxRequest.send(false);
+        ajaxRequest.send();
     }
 
     return {

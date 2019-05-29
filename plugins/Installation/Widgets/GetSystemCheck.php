@@ -9,6 +9,7 @@
 namespace Piwik\Plugins\Installation\Widgets;
 
 use Piwik\Piwik;
+use Piwik\Plugin\Manager;
 use Piwik\Plugins\Diagnostics\Diagnostic\DiagnosticResult;
 use Piwik\Plugins\Diagnostics\DiagnosticReport;
 use Piwik\Plugins\Diagnostics\DiagnosticService;
@@ -30,11 +31,13 @@ class GetSystemCheck extends Widget
 
     public static function configure(WidgetConfig $config)
     {
-        $config->setCategoryId('About Piwik');
+        $config->setCategoryId('About Matomo');
         $config->setName('Installation_SystemCheck');
         $config->setOrder(16);
 
-        $config->setIsEnabled(Piwik::hasUserSuperUserAccess());
+        $config->setIsEnabled(Piwik::hasUserSuperUserAccess() 
+            && Manager::getInstance()->isPluginActivated('Diagnostics')
+        );
     }
 
     public function render()

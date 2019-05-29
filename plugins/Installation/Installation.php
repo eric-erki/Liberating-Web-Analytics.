@@ -14,6 +14,7 @@ use Piwik\Config;
 use Piwik\FrontController;
 use Piwik\Piwik;
 use Piwik\Plugins\Installation\Exception\DatabaseConnectionFailedException;
+use Piwik\SettingsPiwik;
 use Piwik\View as PiwikView;
 
 /**
@@ -44,7 +45,7 @@ class Installation extends \Piwik\Plugin
 
         $errorMessage = $exception->getMessage();
 
-        if (Request::isApiRequest($_GET)) {
+        if (Request::isApiRequest(null)) {
             $ex = new DatabaseConnectionFailedException($errorMessage);
             throw $ex;
         }
@@ -61,6 +62,10 @@ class Installation extends \Piwik\Plugin
     public function dispatchIfNotInstalledYet(&$module, &$action, &$parameters)
     {
         $general = Config::getInstance()->General;
+
+        if (!SettingsPiwik::isPiwikInstalled() && !$general['enable_installer']) {
+            throw new \Exception('Matomo is not set up yet');
+        }
 
         if (empty($general['installation_in_progress'])) {
             return;
@@ -102,8 +107,13 @@ class Installation extends \Piwik\Plugin
 
         $action = Common::getRequestVar('action', 'welcome', 'string');
 
-        if ($this->isAllowedAction($action)) {
+        if ($this->isAllowedAction($action) && (!defined('PIWIK_ENABLE_DISPATCH') || PIWIK_ENABLE_DISPATCH)) {
             echo FrontController::getInstance()->dispatch('Installation', $action, array($message));
+        } elseif (defined('PIWIK_ENABLE_DISPATCH') && !PIWIK_ENABLE_DISPATCH) {
+            if ($exception && $exception instanceof \Exception) {
+                throw $exception;
+            }
+            return;
         } else {
             Piwik::exitWithErrorMessage($this->getMessageToInviteUserToInstallPiwik($message));
         }

@@ -56,7 +56,8 @@
         "facebook/xhprof": "dev-master",
         "phpseclib/phpseclib": "~0.3.8",
         "symfony/var-dumper": "~2.6.0",
-        "symfony/yaml": "~2.6.0"
+        "symfony/yaml": "~2.6.0",
+        "johnkary/phpunit-speedtrap": "^1.0"
     },
     "repositories": [
         {

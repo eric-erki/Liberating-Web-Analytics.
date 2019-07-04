@@ -135,6 +135,8 @@ class Manager
         $cacheId = 'PluginsTracker';
         $cache = Cache::getEagerCache();
 
+        // todo how much can we cache here?.. could potentially save up to 10%
+
         if ($cache->contains($cacheId)) {
             $pluginsTracker = $cache->fetch($cacheId);
         } else {
@@ -319,6 +321,10 @@ class Manager
      */
     public function readPluginsDirectory()
     {
+        if (!empty($GLOBALS['MATOMO_PLUGIN_NAMES_AVAILABLE'])) {
+            return $GLOBALS['MATOMO_PLUGIN_NAMES_AVAILABLE'];
+        }
+
         $result = array();
         foreach (self::getPluginsDirectories() as $pluginsDir) {
             $pluginsName = _glob($pluginsDir . '*', GLOB_ONLYDIR);
@@ -621,7 +627,7 @@ class Manager
     public function installLoadedPlugins()
     {
         Log::debug("Loaded plugins: " . implode(", ", array_keys($this->getLoadedPlugins())));
-        
+
         foreach ($this->getLoadedPlugins() as $plugin) {
             $this->installPluginIfNecessary($plugin);
         }
@@ -824,6 +830,10 @@ class Manager
      */
     public function isPluginBundledWithCore($name)
     {
+        if (!empty($GLOBALS['MATOMO_PLUGIN_NAMES_AVAILABLE'])) {
+            return true;
+        }
+
         return $this->isPluginEnabledByDefault($name)
         || in_array($name, $this->pluginList->getCorePluginsDisabledByDefault())
         || $name == self::DEFAULT_THEME;

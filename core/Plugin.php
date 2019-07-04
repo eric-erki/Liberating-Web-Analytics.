@@ -434,6 +434,11 @@ class Plugin
 
     public function getMissingDependencies($piwikVersion = null)
     {
+        if (!empty($GLOBALS['MATOMO_PLUGIN_NAMES_AVAILABLE'])) {
+            // when the list of plugins is configured, we assume they are all valid and don't have dependencies
+            return array();
+        }
+
         if (empty($this->pluginInformation['require'])) {
             return array();
         }
@@ -535,6 +540,10 @@ class Plugin
      */
     private function doFindMultipleComponents($directoryWithinPlugin, $expectedSubclass)
     {
+        if (!empty($GLOBALS['PLUGINS_MULTIPLE_COMPONENTS'][$expectedSubclass])) {
+            return $GLOBALS['PLUGINS_MULTIPLE_COMPONENTS'][$expectedSubclass];
+        }
+
         $components = array();
 
         $pluginsDir = Manager::getPluginDirectory($this->pluginName);

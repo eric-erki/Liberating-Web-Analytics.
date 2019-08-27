@@ -45,6 +45,8 @@ require_once PIWIK_INCLUDE_PATH . '/libs/PiwikTracker/PiwikTracker.php';
  */
 abstract class SystemTestCase extends PHPUnit_Framework_TestCase
 {
+    const ELAPSED_TIME_CHECK_THRESHOLD = 120; // 2 minutes
+
     /**
      * Identifies the last language used in an API/Controller call.
      *
@@ -54,6 +56,8 @@ abstract class SystemTestCase extends PHPUnit_Framework_TestCase
 
     protected $missingExpectedFiles = array();
     protected $comparisonFailures = array();
+
+    private $testStartTime;
 
     /**
      * @var Fixture
@@ -79,9 +83,47 @@ abstract class SystemTestCase extends PHPUnit_Framework_TestCase
         $fixture->extraDefinitions = static::provideContainerConfigBeforeClass();
 
         try {
-            $fixture->performSetUp();
+            self::withElapsedTimeCheck(function () use ($fixture) {
+                $fixture->performSetUp();
+            }, "fixture setup for " . get_class($fixture));
         } catch (Exception $e) {
             static::fail("Failed to setup fixture: " . $e->getMessage() . "\n" . $e->getTraceAsString());
+        }
+    }
+
+    /**
+     * @before
+     */
+    public function recordTestStartTime()
+    {
+        $this->testStartTime = time();
+    }
+
+    /**
+     * @after
+     */
+    public function checkTestElapsedTime()
+    {
+        $endTime = time();
+        $elapsed = $endTime - $this->testStartTime;
+
+        if ($elapsed > self::ELAPSED_TIME_CHECK_THRESHOLD) {
+            $description = get_class($this) . '::' . $this->getName();
+            print "\nWARNING: $description took a long time to finish ({$elapsed}s)\n";
+        }
+    }
+
+    public static function withElapsedTimeCheck($callback, $description)
+    {
+        $startTime = time();
+
+        $callback();
+
+        $endTime = time();
+        $elapsed = $endTime - $startTime;
+
+        if ($elapsed > self::ELAPSED_TIME_CHECK_THRESHOLD) {
+            print "\nWARNING: $description took a long time to finish ({$elapsed}s)\n";
         }
     }
 
@@ -95,7 +137,9 @@ abstract class SystemTestCase extends PHPUnit_Framework_TestCase
             $fixture = static::$fixture;
         }
 
-        $fixture->performTearDown();
+        self::withElapsedTimeCheck(function () use ($fixture) {
+            $fixture->performTearDown();
+        }, "fixture teardown for " . get_class($fixture));
     }
 
     /**

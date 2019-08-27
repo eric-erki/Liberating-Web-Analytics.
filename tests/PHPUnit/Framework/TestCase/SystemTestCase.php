@@ -45,7 +45,7 @@ require_once PIWIK_INCLUDE_PATH . '/libs/PiwikTracker/PiwikTracker.php';
  */
 abstract class SystemTestCase extends PHPUnit_Framework_TestCase
 {
-    const ELAPSED_TIME_CHECK_THRESHOLD = 120; // 2 minutes
+    const ELAPSED_TIME_CHECK_THRESHOLD = 60; // 1 minute
 
     /**
      * Identifies the last language used in an API/Controller call.
@@ -57,7 +57,7 @@ abstract class SystemTestCase extends PHPUnit_Framework_TestCase
     protected $missingExpectedFiles = array();
     protected $comparisonFailures = array();
 
-    private $testStartTime;
+    private $testStartTime = 0;
 
     /**
      * @var Fixture
@@ -107,7 +107,7 @@ abstract class SystemTestCase extends PHPUnit_Framework_TestCase
         $endTime = time();
         $elapsed = $endTime - $this->testStartTime;
 
-        if ($elapsed > self::ELAPSED_TIME_CHECK_THRESHOLD) {
+        if ($elapsed > 5) {
             $description = get_class($this) . '::' . $this->getName();
             print "\nWARNING: $description took a long time to finish ({$elapsed}s)\n";
         }

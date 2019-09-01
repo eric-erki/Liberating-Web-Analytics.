@@ -68,7 +68,7 @@ class Model
 
         $archiveIds = array();
 
-        $rows = Db::fetchAll($sql);
+        $rows = Db::getReader()->fetchAll($sql);
         foreach ($rows as $row) {
             $duplicateArchives = explode(',', $row['archives']);
 
@@ -158,7 +158,7 @@ class Model
                             AND ts_archived < ?)
                          OR value = " . ArchiveWriter::DONE_ERROR . ")";
 
-        return Db::fetchAll($query, array($purgeArchivesOlderThan));
+        return Db::getReader()->fetchAll($query, array($purgeArchivesOlderThan));
     }
 
     public function deleteArchivesWithPeriod($numericTable, $blobTable, $period, $date)
@@ -317,7 +317,7 @@ class Model
      */
     public function getSitesWithInvalidatedArchive($numericTable)
     {
-        $rows = Db::fetchAll("SELECT DISTINCT idsite FROM `$numericTable` WHERE name LIKE 'done%' AND value = " . ArchiveWriter::DONE_INVALIDATED);
+        $rows = Db::getReader()->fetchAll("SELECT DISTINCT idsite FROM `$numericTable` WHERE name LIKE 'done%' AND value = " . ArchiveWriter::DONE_INVALIDATED);
 
         $result = array();
         foreach ($rows as $row) {
@@ -340,7 +340,7 @@ class Model
             . " WHERE s.idsite IS NULL"
             . " AND ts_archived < ?";
 
-        $rows = Db::fetchAll($sql, array($oldestToKeep));
+        $rows = Db::getReader()->fetchAll($sql, array($oldestToKeep));
 
         return array_column($rows, 'idarchive');
     }

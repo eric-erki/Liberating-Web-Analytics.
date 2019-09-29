@@ -362,6 +362,11 @@ enable_browser_archiving_triggering = 1
 ; or make sure the date ranges users' want to see will be processed somehow.
 archiving_range_force_on_browser_request = 1
 
+; By default Matomo will automatically archive all date ranges any user has chosen in his account settings.
+; This is limited to the available options last7, previous7, last30 and previous30.
+; If you need any other period, or want to ensure one of those is always archived, you can define them here
+archiving_custom_ranges[] =
+
 ; By default Matomo runs OPTIMIZE TABLE SQL queries to free spaces after deleting some data.
 ; If your Matomo tracks millions of pages, the OPTIMIZE TABLE queries might run for hours (seen in "SHOW FULL PROCESSLIST \g")
 ; so you can disable these special queries here:
@@ -543,6 +548,12 @@ live_widget_visitor_count_last_minutes = 3
 ; this limit can be adjusted by changing this value
 live_visitor_profile_max_visits_to_aggregate = 100
 
+; If configured, will abort a MySQL query after the configured amount of seconds and show an error in the UI to for
+; example lower the date range or tweak the segment (if one is applied). Set it to -1 if the query time should not be
+; limited. Note: This feature requires a recent MySQL version (5.7 or newer). Some MySQL forks like MariaDB might not
+; support this feature which uses the MAX_EXECUTION_TIME hint.
+live_query_max_execution_time = -1
+
 ; In "All Websites" dashboard, when looking at today's reports (or a date range including today),
 ; the page will automatically refresh every 5 minutes. Set to 0 to disable automatic refresh
 multisites_refresh_after_seconds = 300
@@ -662,6 +673,12 @@ enable_load_data_infile = 1
 ; - links to Enable/Disable/Uninstall plugins will be hidden and disabled
 ; - links to Uninstall themes will be disabled (but user can still enable/disable themes)
 enable_plugins_admin = 1
+
+; By setting this option to 0 the users management will be disabled
+enable_users_admin = 1
+
+; By setting this option to 0 the websites management will be disabled
+enable_sites_admin = 1
 
 ; By setting this option to 1, it will be possible for Super Users to upload Matomo plugin ZIP archives directly in Matomo Administration.
 ; Enabling this opens a remote code execution vulnerability where

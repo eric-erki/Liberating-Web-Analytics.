@@ -95,7 +95,7 @@ class InvalidateReportData extends ConsoleCommand
         }
 
         $periods = $input->getOption('periods');
-        if ($periods === self::ALL_OPTION_VALUE) {
+        if ($periods === self::ALL_OPTION_VALUE || in_array('range', $periodTypes)) {
             $rangeDates = array();
             foreach ($dateRanges as $dateRange) {
                 $rangeDates[] = $this->getPeriodDates('range', $dateRange);

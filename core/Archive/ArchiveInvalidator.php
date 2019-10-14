@@ -227,7 +227,7 @@ class ArchiveInvalidator
         foreach ($archiveNumericTables as $table) {
             $tableDate = ArchiveTableCreator::getDateFromTableName($table);
 
-            $result = $this->model->updateAllRangeArchivesAsInvalidated($table, $idSites, $periods, $segment);
+            $result = $this->model->updateArchiveAsInvalidated($table, $idSites, $periods, $segment);
             $rowsAffected = $result->rowCount();
             if ($rowsAffected > 0) {
                 $invalidatedMonths[] = $tableDate;
@@ -272,12 +272,6 @@ class ArchiveInvalidator
     {
         $periodsToInvalidate = array();
 
-        if ($periodType == 'range') {
-            $rangeString = $dates[0] . ',' . $dates[1];
-            $periodsToInvalidate[] = Period\Factory::build('range', $rangeString);
-            return $periodsToInvalidate;
-        }
-
         foreach ($dates as $date) {
             $period = Period\Factory::build($periodType, $date);
             $periodsToInvalidate[] = $period;
@@ -286,7 +280,7 @@ class ArchiveInvalidator
                 $periodsToInvalidate = array_merge($periodsToInvalidate, $period->getAllOverlappingChildPeriods());
             }
 
-            if ($periodType != 'year') {
+            if ($periodType != 'year' && $period !== 'range') {
                 $periodsToInvalidate[] = Period\Factory::build('year', $date);
             }
         }

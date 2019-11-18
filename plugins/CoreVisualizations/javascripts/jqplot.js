@@ -46,11 +46,13 @@ function rowEvolutionGetMetricNameFromRow(tr)
         init: function () {
             dataTablePrototype.init.call(this);
 
+            console.log(0);
             var graphElement = $('.piwik-graph', this.$element);
             if (!graphElement.length) {
+                console.log(1);
                 return;
             }
-
+            console.log(2);
             this._lang = {
                 noData: _pk_translate('General_NoDataForGraph'),
                 exportTitle: _pk_translate('General_ExportAsImage'),
@@ -63,23 +65,23 @@ function rowEvolutionGetMetricNameFromRow(tr)
             // set a unique ID for the graph element (required by jqPlot)
             this.targetDivId = this.workingDivId + 'Chart';
             graphElement.attr('id', this.targetDivId);
-
+            console.log(3);
             try {
                 var graphData = JSON.parse(graphElement.attr('data-data'));
             } catch (e) {
                 console.error('JSON.parse Error: "' + e + "\" in:\n" + graphElement.attr('data-data'));
                 return;
             }
-
+            console.log(4);
             this.data = graphData.data;
             this._setJqplotParameters(graphData.params);
-
+            console.log(5);
             if (this.props.display_percentage_in_tooltip) {
                 this._setTooltipPercentages();
             }
 
             this._bindEvents();
-
+            console.log(6);
             // add external series toggle if it should be added
             if (this.props.external_series_toggle) {
                 this.addExternalSeriesToggle(
@@ -87,11 +89,12 @@ function rowEvolutionGetMetricNameFromRow(tr)
                     this.props.external_series_toggle_show_all == 1
                 );
             }
-
+            console.log(7);
             // render the graph (setTimeout is required, otherwise the graph will not
             // render initially)
             var self = this;
             setTimeout(function () { self.render(); }, 1);
+            console.log(8);
         },
 
         _setJqplotParameters: function (params) {

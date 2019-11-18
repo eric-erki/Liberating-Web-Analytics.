@@ -21,6 +21,7 @@ describe("BarGraph", function () {
 
     it("should load correctly", async function () {
         await page.goto(url);
+        await page.waitFor('.piwik-graph', { visible: true });
         expect(await page.screenshot({ fullPage: true })).to.matchImage('load');
     });
 

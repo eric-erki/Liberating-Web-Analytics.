@@ -1,7 +1,7 @@
 {% if properties.show_visualization_only %}
     {% include visualizationTemplate %}
 {%- else -%}
-
+<script>console.log('here?');</script>
 {% set isDataTableEmpty = (dataTable is not defined or dataTable is null or dataTableHasNoData|default(false)) %}
 
 {% set showCardAsContentBlock = (properties.show_as_content_block and properties.show_title and not isWidget) %}

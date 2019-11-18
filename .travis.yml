@@ -35,43 +35,6 @@ env:
 matrix:
   fast_finish: true
   include:
-    # PDO Mysql
-    - php: 5.6
-      env: TEST_SUITE=SystemTestsCore MYSQL_ADAPTER=PDO_MYSQL
-      sudo: required
-    - php: 5.6
-      env: TEST_SUITE=SystemTestsPlugins MYSQL_ADAPTER=PDO_MYSQL
-      sudo: required
-    - php: 5.6
-      env: TEST_SUITE=IntegrationTestsCore MYSQL_ADAPTER=PDO_MYSQL
-      sudo: required
-    - php: 5.6
-      env: TEST_SUITE=IntegrationTestsPlugins MYSQL_ADAPTER=PDO_MYSQL
-      sudo: required
-    - php: 5.6
-      env: TEST_SUITE=UnitTests MYSQL_ADAPTER=PDO_MYSQL
-      sudo: false
-      addons: false
-    # Javascript tests
-    - php: 5.6
-      env: TEST_SUITE=JavascriptTests MYSQL_ADAPTER=PDO_MYSQL
-      sudo: false
-      addons:
-        apt:
-          packages:
-            - nginx
-            - realpath
-    - php: 5.6
-      env: TEST_SUITE=AngularJSTests MYSQL_ADAPTER=PDO_MYSQL SKIP_COMPOSER_INSTALL=1
-      sudo: false
-      addons: false
-    # All tests after another
-    - php: 7.3
-      env: TEST_SUITE=AllTests MYSQL_ADAPTER=MYSQLI ALLTEST_EXTRA_OPTIONS="--run-first-half-only"
-      sudo: required
-    - php: 7.3
-      env: TEST_SUITE=AllTests MYSQL_ADAPTER=MYSQLI ALLTEST_EXTRA_OPTIONS="--run-second-half-only"
-      sudo: required
     # UITests use a specific version because the default 5.5 (== 5.5.38) is missing FreeType support
     - php: 5.5.33
       env: TEST_SUITE=UITests MYSQL_ADAPTER=PDO_MYSQL UITEST_EXTRA_OPTIONS="--run-first-half-only"
@@ -91,7 +54,7 @@ install:
   - git fetch -q
 
   - export GENERATE_TRAVIS_YML_COMMAND="php ./tests/travis/generator/main.php generate:travis-yml --core --verbose"
-  - '[[ "$TRAVIS_JOB_NUMBER" != *.1 || "$TRAVIS_PULL_REQUEST" != "false" ]] || ./tests/travis/autoupdate_travis_yml.sh'
+  #- '[[ "$TRAVIS_JOB_NUMBER" != *.1 || "$TRAVIS_PULL_REQUEST" != "false" ]] || ./tests/travis/autoupdate_travis_yml.sh'
 
   - ./tests/travis/configure_git.sh
 

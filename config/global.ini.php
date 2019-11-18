@@ -184,7 +184,7 @@ enabled = 0
 ; if set to 1, javascript files will be included individually and neither merged nor minified.
 ; this option must be set to 1 when adding, removing or modifying javascript files
 ; Note that for quick debugging, instead of using below setting, you can add `&disable_merged_assets=1` to the Matomo URL
-disable_merged_assets = 0
+disable_merged_assets = 1
 
 [General]
 ; the following settings control whether Unique Visitors `nb_uniq_visitors` and Unique users `nb_users` will be processed for different period types.

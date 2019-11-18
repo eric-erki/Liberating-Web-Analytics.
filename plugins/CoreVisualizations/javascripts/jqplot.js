@@ -14,7 +14,7 @@ function rowEvolutionGetMetricNameFromRow(tr)
 }
 
 (function ($, require) {
-
+console.log('file loaded');
     var exports = require('piwik/UI'),
         DataTable = exports.DataTable,
         dataTablePrototype = DataTable.prototype,

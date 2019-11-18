@@ -40,14 +40,19 @@ function DataTable(element) {
 DataTable._footerIconHandlers = {};
 
 DataTable.initNewDataTables = function () {
+    console.log('a');
     $('div.dataTable').each(function () {
+        console.log('b');
         if (!$(this).attr('id')) {
+            console.log('c');
             var tableType = $(this).attr('data-table-type') || 'DataTable',
                 klass = require('piwik/UI')[tableType] || require(tableType);
-
+console.log(klass);
             if (klass && $.isFunction(klass)) {
                 var table = new klass(this);
             }
+        } else {
+            console.log('d');
         }
     });
 };

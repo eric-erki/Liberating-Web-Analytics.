@@ -4,7 +4,8 @@
 
     <script>
         // $ may not be defined
-        console.log(document.head.innerHTML);
+        console.log(typeof window.jQuery);
+        console.log(Object.keys(window));
         window.$ = window.jQuery;
         console.log(window.$);
     </script>

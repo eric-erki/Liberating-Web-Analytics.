@@ -1,15 +1,5 @@
-<script type="text/javascript">console.log('here4');</script>
 <script type="text/javascript" defer="defer">
-    console.log(typeof($));
-    try {
-        $(document).ready(function () {
-            console.log('am i here?');
-            console.log(require('piwik/UI/DataTable').initNewDataTables);
-            require('piwik/UI/DataTable').initNewDataTables();
-        });
-
-        console.log(typeof($(document).ready));
-    } catch (e) {
-        console.log(e.stack || e.message);
-    }
+    $(document).ready(function () {
+        require('piwik/UI/DataTable').initNewDataTables();
+    });
 </script>

@@ -1,4 +1,9 @@
 {% autoescape false %}
     {{ includeAssets({"type": "css"}) }}
     {{ includeAssets({"type":"js"}) }}
+
+    <script>
+        // $ may not be defined
+        window.$ = window.jQuery;
+    </script>
 {% endautoescape %}

@@ -132,7 +132,7 @@ class CoreHome extends \Piwik\Plugin
 
     public function getJsFiles(&$jsFiles)
     {
-        $jsFiles[] = "node_modules/jquery/dist/jquery.min.js";
+        $jsFiles[] = "node_modules/jquery/dist/jquery.js";
         $jsFiles[] = "node_modules/jquery-ui-dist/jquery-ui.min.js";
         $jsFiles[] = "node_modules/materialize-css/dist/js/materialize.min.js";
         $jsFiles[] = "plugins/CoreHome/javascripts/materialize-bc.js";

@@ -35,6 +35,7 @@ function rowEvolutionGetMetricNameFromRow(tr)
      * @constructor
      */
     exports.JqplotGraphDataTable = function (element) {
+        console.log(-2);
         DataTable.call(this, element);
     };
 
@@ -44,6 +45,7 @@ function rowEvolutionGetMetricNameFromRow(tr)
          * Initializes this class.
          */
         init: function () {
+            console.log(-1);
             dataTablePrototype.init.call(this);
 
             console.log(0);

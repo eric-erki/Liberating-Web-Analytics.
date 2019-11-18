@@ -69,6 +69,8 @@ class UITestFixture extends SqlDump
     {
         parent::setUp();
 
+        print "fe: " . file_exists(PIWIK_INCLUDE_PATH . "/node_modules/jquery/dist/jquery.js")."\n";
+        print "fe: " . file_exists(PIWIK_INCLUDE_PATH . "/tests/PHPUnit/proxy/node_modules/jquery/dist/jquery.js")."\n";
         self::resetPluginsInstalledConfig();
         self::updateDatabase();
         self::installAndActivatePlugins($this->getTestEnvironment());

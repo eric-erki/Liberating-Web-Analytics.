@@ -31,6 +31,7 @@ class GetEntryPageUrls extends Base
                              . '<br />' . Piwik::translate('General_UsePlusMinusIconsDocumentation');
 
         $this->metrics = array('entry_nb_visits', 'entry_bounce_count');
+        $this->defaultSortColumn = 'entry_nb_visits';
         $this->processedMetrics = array(
             new AverageTimeOnPage(),
             new BounceRate(),

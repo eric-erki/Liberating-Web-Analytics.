@@ -32,6 +32,7 @@ class GetExitPageUrls extends Base
                              . '<br />' . Piwik::translate('General_UsePlusMinusIconsDocumentation');
 
         $this->metrics = array('exit_nb_visits', 'nb_visits');
+        $this->defaultSortColumn = 'exit_nb_visits';
         $this->processedMetrics = array(
             new AverageTimeOnPage(),
             new BounceRate(),

@@ -32,6 +32,7 @@ class GetExitPageTitles extends Base
         $this->subcategoryId = 'Actions_SubmenuPagesExit';
 
         $this->metrics = array('exit_nb_visits', 'nb_visits');
+        $this->defaultSortColumn = 'exit_nb_visits';
         $this->processedMetrics = array(
             new AverageTimeOnPage(),
             new BounceRate(),
@@ -87,6 +88,8 @@ class GetExitPageTitles extends Base
 
         $view->config->title = $this->name;
         $view->config->columns_to_display = array('label', 'exit_nb_visits', 'nb_visits', 'exit_rate');
+        $view->requestConfig->filter_sort_column = 'exit_nb_visits';
+        $view->requestConfig->filter_sort_order  = 'desc';
 
         $this->addPageDisplayProperties($view);
         $this->addBaseDisplayProperties($view);

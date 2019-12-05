@@ -121,7 +121,7 @@ class RequestSet
 
     protected function getRedirectUrl()
     {
-        return Common::getRequestVar('redirecturl', false, 'string');
+        return Common::unsanitizeInputValue(Common::getRequestVar('redirecturl', false, 'string'));
     }
 
     protected function hasRedirectUrl()

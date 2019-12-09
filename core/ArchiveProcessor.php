@@ -126,7 +126,8 @@ class ArchiveProcessor
         if (empty($this->archive)) {
             $subPeriods = $this->params->getSubPeriods();
             $idSites    = $this->params->getIdSites();
-            $this->archive = Archive::factory($this->params->getSegment(), $subPeriods, $idSites);
+            $this->archive = Archive::factory($this->params->getSegment(), $subPeriods, $idSites, $idSitesIsAll = false, $isMultipleDate = false,
+                $includeInvalidated = SettingsServer::isArchivePhpTriggered()); // TODO: explain
         }
 
         return $this->archive;

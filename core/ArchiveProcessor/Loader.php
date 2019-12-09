@@ -36,9 +36,15 @@ class Loader
      */
     protected $params;
 
-    public function __construct(Parameters $params)
+    /**
+     * @var bool
+     */
+    protected $includeInvalidated;
+
+    public function __construct(Parameters $params, $includeInvalidated)
     {
         $this->params = $params;
+        $this->includeInvalidated = $includeInvalidated;
     }
 
     /**
@@ -168,7 +174,7 @@ class Loader
             return $noArchiveFound;
         }
 
-        $idAndVisits = ArchiveSelector::getArchiveIdAndVisits($this->params);
+        $idAndVisits = ArchiveSelector::getArchiveIdAndVisits($this->params, false, $this->includeInvalidated);
 
         if (!$idAndVisits) {
             return $noArchiveFound;

@@ -51,7 +51,7 @@ class ArchiveSelector
      * @return array|bool
      * @throws Exception
      */
-    public static function getArchiveIdAndVisits(ArchiveProcessor\Parameters $params, $minDatetimeArchiveProcessedUTC = false)
+    public static function getArchiveIdAndVisits(ArchiveProcessor\Parameters $params, $minDatetimeArchiveProcessedUTC = false, $includeInvalidated = false)
     {
         $idSite       = $params->getSite()->getId();
         $period       = $params->getPeriod()->getId();
@@ -66,7 +66,7 @@ class ArchiveSelector
         $plugins = array("VisitsSummary", $requestedPlugin);
 
         $doneFlags      = Rules::getDoneFlags($plugins, $segment);
-        $doneFlagValues = Rules::getSelectableDoneFlagValues();
+        $doneFlagValues = Rules::getSelectableDoneFlagValues($includeInvalidated);
 
         $results = self::getModel()->getArchiveIdAndVisits($numericTable, $idSite, $period, $dateStartIso, $dateEndIso, $doneFlags, $doneFlagValues);
 
@@ -147,7 +147,7 @@ class ArchiveSelector
      *               )
      * @throws
      */
-    public static function getArchiveIds($siteIds, $periods, $segment, $plugins)
+    public static function getArchiveIds($siteIds, $periods, $segment, $plugins, $includeInvalidated = false)
     {
         if (empty($siteIds)) {
             throw new \Exception("Website IDs could not be read from the request, ie. idSite=");
@@ -160,7 +160,7 @@ class ArchiveSelector
         $getArchiveIdsSql = "SELECT idsite, name, date1, date2, MAX(idarchive) as idarchive
                                FROM %s
                               WHERE idsite IN (" . implode(',', $siteIds) . ")
-                                AND " . self::getNameCondition($plugins, $segment) . "
+                                AND " . self::getNameCondition($plugins, $segment, $includeInvalidated) . "
                                 AND %s
                            GROUP BY idsite, date1, date2, name";
 
@@ -362,14 +362,14 @@ class ArchiveSelector
      * @param Segment $segment
      * @return string
      */
-    private static function getNameCondition(array $plugins, Segment $segment)
+    private static function getNameCondition(array $plugins, Segment $segment, $includeInvalidated = false)
     {
         // the flags used to tell how the archiving process for a specific archive was completed,
         // if it was completed
         $doneFlags    = Rules::getDoneFlags($plugins, $segment);
         $allDoneFlags = "'" . implode("','", $doneFlags) . "'";
 
-        $possibleValues = Rules::getSelectableDoneFlagValues();
+        $possibleValues = Rules::getSelectableDoneFlagValues($includeInvalidated);
 
         // create the SQL to find archives that are DONE
         return "((name IN ($allDoneFlags)) AND (value IN (" . implode(',', $possibleValues) . ")))";

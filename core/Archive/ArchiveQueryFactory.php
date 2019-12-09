@@ -37,7 +37,7 @@ class ArchiveQueryFactory
     /**
      * @see \Piwik\Archive::factory()
      */
-    public function factory(Segment $segment, array $periods, array $idSites, $idSiteIsAll = false, $isMultipleDate = false)
+    public function factory(Segment $segment, array $periods, array $idSites, $idSiteIsAll = false, $isMultipleDate = false, $includeInvalidated = false)
     {
         $forceIndexedBySite = false;
         $forceIndexedByDate = false;
@@ -55,9 +55,9 @@ class ArchiveQueryFactory
         return $this->newInstance($params, $forceIndexedBySite, $forceIndexedByDate);
     }
 
-    public function newInstance(Parameters $params, $forceIndexedBySite, $forceIndexedByDate)
+    public function newInstance(Parameters $params, $forceIndexedBySite, $forceIndexedByDate, $includeInvalidated = false)
     {
-        return new Archive($params, $forceIndexedBySite, $forceIndexedByDate);
+        return new Archive($params, $forceIndexedBySite, $forceIndexedByDate, $includeInvalidated);
     }
 
     /**

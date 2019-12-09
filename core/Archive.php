@@ -173,16 +173,22 @@ class Archive implements ArchiveQuery
     private $invalidator;
 
     /**
+     * @var bool
+     */
+    private $includeInvalidated;
+
+    /**
      * @param Parameters $params
      * @param bool $forceIndexedBySite Whether to force index the result of a query by site ID.
      * @param bool $forceIndexedByDate Whether to force index the result of a query by period.
      */
     public function __construct(Parameters $params, $forceIndexedBySite = false,
-                                   $forceIndexedByDate = false)
+                                   $forceIndexedByDate = false, $includeInvalidated = false)
     {
         $this->params = $params;
         $this->forceIndexedBySite = $forceIndexedBySite;
         $this->forceIndexedByDate = $forceIndexedByDate;
+        $this->includeInvalidated = $includeInvalidated;
 
         $this->invalidator = StaticContainer::get('Piwik\Archive\ArchiveInvalidator');
     }
@@ -235,10 +241,10 @@ class Archive implements ArchiveQuery
      * @return ArchiveQuery
      */
     public static function factory(Segment $segment, array $periods, array $idSites, $idSiteIsAll = false,
-                                   $isMultipleDate = false)
+                                   $isMultipleDate = false, $includeInvalidated = false)
     {
         return StaticContainer::get(ArchiveQueryFactory::class)->factory($segment, $periods, $idSites, $idSiteIsAll,
-            $isMultipleDate);
+            $isMultipleDate, $includeInvalidated);
     }
 
     /**
@@ -689,7 +695,7 @@ class Archive implements ArchiveQuery
     private function cacheArchiveIdsWithoutLaunching($plugins)
     {
         $idarchivesByReport = ArchiveSelector::getArchiveIds(
-            $this->params->getIdSites(), $this->params->getPeriods(), $this->params->getSegment(), $plugins);
+            $this->params->getIdSites(), $this->params->getPeriods(), $this->params->getSegment(), $plugins, $this->includeInvalidated);
 
         // initialize archive ID cache for each report
         foreach ($plugins as $plugin) {
@@ -853,7 +859,7 @@ class Archive implements ArchiveQuery
     private function prepareArchive(array $archiveGroups, Site $site, Period $period)
     {
         $parameters = new ArchiveProcessor\Parameters($site, $period, $this->params->getSegment());
-        $archiveLoader = new ArchiveProcessor\Loader($parameters);
+        $archiveLoader = new ArchiveProcessor\Loader($parameters, $this->includeInvalidated);
 
         $periodString = $period->getRangeString();
 

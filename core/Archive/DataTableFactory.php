@@ -11,7 +11,7 @@ namespace Piwik\Archive;
 
 use Piwik\API\Request;
 use Piwik\Cache;
-use Piwik\Cache\Transient;
+use Matomo\Cache\Transient;
 use Piwik\CacheId;
 use Piwik\DataTable;
 use Piwik\DataTable\Row;
